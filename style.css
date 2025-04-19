@@ -138,3 +138,62 @@ h1, h2, h3, h4 {
 #input-modal button:hover {
     background-color: #0056b3;
 }
+/* Add these styles to style.css */
+
+.grid-cell {
+    background-color: #fff;
+    border: 1px solid #aaa;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 10px; /* Or your preferred size */
+    cursor: pointer;
+    transition: background-color 0.2s;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    /* Revert padding back to original/simpler value */
+    padding: 2px;
+    box-sizing: border-box;
+    /* position: relative; is no longer needed */
+
+.add-data-button {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 18px; /* Adjust size as needed */
+    height: 18px; /* Adjust size as needed */
+    background-color: #28a745; /* Green background */
+    color: white;
+    border: none;
+    border-radius: 50%; /* Make it circular */
+    font-size: 14px; /* Adjust '+' size */
+    font-weight: bold;
+    line-height: 16px; /* Center the '+' vertically */
+    text-align: center;
+    cursor: pointer;
+    display: none; /* Hidden by default */
+    z-index: 1; /* Ensure it's above cell content if needed */
+    padding: 0; /* Remove default button padding */
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.3); /* Optional shadow */
+}
+
+.grid-cell:hover .add-data-button {
+    display: block; /* Show button on cell hover */
+}
+
+.add-data-button:hover {
+    background-color: #218838; /* Darker green on hover */
+}
+
+/* Ensure fixed cells don't show the button */
+.grid-cell.fixed-cell:hover .add-data-button {
+    display: none;
+}
+
+/* Adjust cell padding slightly if needed to avoid overlap */
+.grid-cell {
+    /* ... */
+    padding: 2px 22px 2px 2px; /* Add padding on the right to make space for the button */
+    /* ... */
+}
