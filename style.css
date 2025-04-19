@@ -9,254 +9,7 @@ h1, h2, h3, h4 {
     color: #333;
 }
 
-.container {
-    display: flex;
-    /* flex-wrap: wrap; */
-    gap: 20px;
-}
-
-.grid-container {
-    display: grid;
-    grid-template-columns: repeat(5, 60px); /* 5 columns */
-    grid-template-rows: repeat(9, 60px);    /* 9 rows */
-    gap: 5px;
-    border: 2px solid #555;
-    padding: 5px;
-    background-color: #ddd;
-    width: fit-content; /* Adjust width to content */
-    height: fit-content; /* Adjust height to content */
-    flex-shrink: 0; /* Prevent grid from shrinking too much */
-}
-
-.grid-cell {
-    background-color: #fff;
-    border: 1px solid #aaa;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 10px;
-    font-weight: normal; /* Default font weight */
-    cursor: pointer;
-    transition: background-color 0.2s, border-color 0.2s;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    padding: 2px;
-    box-sizing: border-box;
-    text-align: center; /* Center text */
-}
-/* Style for cells displaying a selected room name */
-.grid-cell.has-selection {
-    font-weight: bold;
-    font-size: 9px; /* Slightly smaller if names are long */
-}
-
-
-.grid-cell:hover {
-    background-color: #e0e0e0;
-}
-
-.grid-cell.selected {
-    background-color: #a0c4ff; /* Highlight selected cell */
-    border: 2px solid #0056b3;
-}
-
-.grid-cell.fixed-cell {
-    background-color: #b0bec5; /* A neutral greyish color */
-    font-weight: bold;
-    cursor: default; /* Indicate it's not clickable like the others */
-    border-color: #78909c;
-}
-.grid-cell.fixed-cell:hover {
-    background-color: #b0bec5; /* Keep the same background on hover */
-}
-.grid-cell.fixed-cell.selected { /* Should not happen, but prevent style */
-    background-color: #b0bec5;
-    border: 1px solid #78909c;
-}
-
-.controls-panel {
-    /* width: 100%; */
-    margin-top: 10px;
-    width: fit-content;
-}
-
-.info-panel {
-    flex-grow: 1;
-    background-color: #fff;
-    padding: 15px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    min-width: 350px; /* Ensure panel has some width */
-    max-height: calc(9 * 60px + 8 * 5px + 2 * 5px + 2 * 2px); /* Match grid height approx */
-    overflow-y: auto; /* Add scroll if content overflows */
-}
-
-#day-list, #frequency-list {
-    list-style-type: none;
-    padding-left: 0;
-    font-size: 0.9em;
-    max-height: 250px; /* Limit list height */
-    overflow-y: auto; /* Add scroll to lists */
-    margin-bottom: 15px;
-}
-
-/* Styles for items in the Day List */
-.day-list-item {
-    background-color: #f9f9f9;
-    padding: 8px;
-    border: 1px solid #eee;
-    border-radius: 4px;
-    margin-bottom: 8px;
-}
-
-.day-list-item h5 { /* Day number */
-    margin: 0 0 5px 0;
-    font-size: 1em;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.day-offers {
-    margin-bottom: 5px;
-    color: #555;
-}
-
-.day-selection-controls label {
-    margin-right: 10px;
-    cursor: pointer;
-    display: inline-block; /* Layout radio buttons */
-    font-size: 0.95em;
-}
-.day-selection-controls input[type="radio"] {
-    margin-right: 3px;
-}
-
-.delete-day-button {
-    background: none;
-    border: none;
-    color: #dc3545;
-    cursor: pointer;
-    font-size: 1.1em; /* Make X slightly larger */
-    padding: 0 3px;
-    margin-left: 5px;
-    line-height: 1;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-    vertical-align: middle; /* Align with Day number */
-}
-
-.delete-day-button:hover {
-    color: #a71d2a;
-    opacity: 1;
-}
-
-#frequency-list li {
-    margin-bottom: 5px;
-    background-color: #f0f0f0;
-    padding: 3px 5px;
-    border-radius: 3px;
-}
-
-
-/* --- Modal Styles --- */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 10; /* Ensure modal is on top */
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-    background-color: rgba(0,0,0,0.5); /* Slightly darker background */
-}
-
-.modal-content {
-    background-color: #fefefe;
-    margin: 10% auto; /* Adjust vertical margin */
-    padding: 25px;
-    border: 1px solid #888;
-    width: 90%;
-    max-width: 450px; /* Slightly wider modal */
-    border-radius: 8px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-}
-
-.close-button {
-    color: #aaa;
-    float: right;
-    font-size: 28px;
-    font-weight: bold;
-    line-height: 1;
-}
-
-.close-button:hover,
-.close-button:focus {
-    color: black;
-    text-decoration: none;
-    cursor: pointer;
-}
-
-.modal-section {
-    margin-bottom: 20px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid #eee;
-}
-.modal-section:last-child {
-    border-bottom: none;
-    margin-bottom: 10px;
-}
-
-.modal-section h4 {
-    margin-top: 0;
-    margin-bottom: 10px;
-    color: #555;
-}
-
-
-#input-modal label { /* Labels for offers */
-    display: inline-block;
-    width: 60px; /* Smaller width for offer labels */
-    margin-bottom: 10px;
-}
-#input-modal input[type="text"] { /* Inputs for offers */
-    width: calc(100% - 75px); /* Adjust width */
-    padding: 6px;
-    margin-bottom: 10px;
-    border: 1px solid #ccc;
-    border-radius: 3px;
-}
-
-#selection-options label { /* Labels for radio buttons */
-    display: block; /* Each option on a new line */
-    margin-bottom: 8px;
-    cursor: pointer;
-}
-#selection-options input[type="radio"] {
-    margin-right: 5px;
-}
-
-
-#submit-day { /* Submit button */
-    padding: 10px 20px;
-    background-color: #28a745; /* Green color */
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    margin-top: 10px;
-    font-size: 1em;
-    transition: background-color 0.2s;
-}
-#submit-day:hover {
-    background-color: #218838;
-}
-
-/* Remove styles for the old delete-visit-button if they exist */
-/* Remove styles for add-data-button */
-/* Add these styles */
+/* Current Day Controls Styling */
 .current-day-controls {
     margin-bottom: 20px;
     text-align: center;
@@ -292,24 +45,374 @@ h1, h2, h3, h4 {
     background-color: #f0f0f0;
 }
 
-/* Style to highlight the current day in the list */
-.day-list-item.current-day-item {
-    border-left: 4px solid #007bff; /* Blue left border */
-    background-color: #e7f3ff; /* Light blue background */
-}
-.day-list-item.current-day-item h5 {
-    color: #0056b3; /* Darker blue text for header */
+/* Main Layout Container */
+.container {
+    display: flex;
+    /* flex-wrap: wrap; */ /* Removed to keep items in a row */
+    gap: 20px;
+    align-items: flex-start; /* Align items to the top */
 }
 
-/* Minor adjustments to existing styles if needed */
+/* Mansion Grid Styling */
+.grid-container {
+    display: grid;
+    grid-template-columns: repeat(5, 60px); /* 5 columns */
+    grid-template-rows: repeat(9, 60px);    /* 9 rows */
+    gap: 5px;
+    border: 2px solid #555;
+    padding: 5px;
+    background-color: #ddd;
+    width: fit-content;
+    height: fit-content;
+    flex-shrink: 0; /* Prevent grid from shrinking */
+}
+
+.grid-cell {
+    background-color: #fff;
+    border: 1px solid #aaa;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 10px;
+    font-weight: normal;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 2px;
+    box-sizing: border-box;
+    text-align: center;
+}
+.grid-cell.has-selection {
+    font-weight: bold;
+    font-size: 9px;
+}
+.grid-cell:hover {
+    background-color: #e0e0e0;
+}
+.grid-cell.selected {
+    background-color: #a0c4ff;
+    border: 2px solid #0056b3;
+}
+.grid-cell.fixed-cell {
+    background-color: #b0bec5;
+    font-weight: bold;
+    cursor: default;
+    border-color: #78909c;
+}
+.grid-cell.fixed-cell:hover {
+    background-color: #b0bec5;
+}
+.grid-cell.fixed-cell.selected {
+    background-color: #b0bec5;
+    border: 1px solid #78909c;
+}
+
+/* Controls Panel Styling (Clear Button) */
+.controls-panel {
+    /* width: 100%; */ /* Removed */
+    margin-top: 10px;
+    width: fit-content; /* Takes only needed width */
+    /* Consider adding 'order: 3;' if you want it explicitly last */
+}
+
+/* Info Panel Styling */
+.info-panel {
+    flex-grow: 1; /* Allows panel to take remaining horizontal space */
+    background-color: #fff;
+    padding: 15px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    min-width: 350px;
+    /* max-height: calc(9 * 60px + 8 * 5px + 2 * 5px + 2 * 2px); */ /* Optional: Limit height */
+    overflow-y: auto;
+}
 .info-panel p { /* Instruction text */
     font-size: 0.9em;
     color: #666;
     margin-bottom: 15px;
 }
 
-/* Ensure modal title is visible */
+/* Lists within Info Panel */
+#day-list, #frequency-list {
+    list-style-type: none;
+    padding-left: 0;
+    font-size: 0.9em;
+    max-height: 250px;
+    overflow-y: auto;
+    margin-bottom: 15px;
+}
+
+/* Day List Item Styling */
+.day-list-item {
+    background-color: #f9f9f9;
+    padding: 8px;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    border-left: 4px solid transparent; /* Default border */
+}
+.day-list-item.current-day-item {
+    border-left: 4px solid #007bff; /* Highlight current day */
+    background-color: #e7f3ff;
+}
+.day-list-item h5 { /* Day number header */
+    margin: 0 0 5px 0;
+    font-size: 1em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.day-list-item.current-day-item h5 {
+    color: #0056b3;
+}
+.day-offers {
+    margin-bottom: 5px;
+    color: #555;
+    font-size: 0.95em;
+}
+.day-selection-controls label {
+    margin-right: 10px;
+    cursor: pointer;
+    display: inline-block;
+    font-size: 0.95em;
+}
+.day-selection-controls input[type="radio"] {
+    margin-right: 3px;
+    vertical-align: middle;
+}
+.delete-day-button {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    font-size: 1.1em;
+    padding: 0 3px;
+    margin-left: 5px;
+    line-height: 1;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    vertical-align: middle;
+}
+.delete-day-button:hover {
+    color: #a71d2a;
+    opacity: 1;
+}
+
+/* Frequency List Item Styling */
+#frequency-list li {
+    margin-bottom: 5px;
+    background-color: #f0f0f0;
+    padding: 3px 5px;
+    border-radius: 3px;
+}
+
+
+/* --- Modal Styles --- */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 10;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto; /* Reduced top margin */
+    padding: 25px;
+    border: 1px solid #888;
+    width: 90%;
+    max-width: 550px; /* Wider modal for room grid */
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+.close-button {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    line-height: 1;
+}
+.close-button:hover,
+.close-button:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
 #modal-title {
     margin-top: 0;
     margin-bottom: 15px;
+}
+
+.modal-section {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+.modal-section:last-of-type { /* Use last-of-type for better targeting */
+    border-bottom: none;
+    margin-bottom: 10px;
+}
+.modal-section h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #555;
+}
+
+/* Modal Room Selector Grid */
+.room-grid-selector-container {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 4px;
+    margin-bottom: 15px;
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    padding: 5px;
+    background-color: #f8f8f8;
+}
+
+.room-selector-button {
+    padding: 5px 2px;
+    font-size: 9px;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-radius: 3px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    line-height: 1.2; /* Adjust line height */
+    min-height: 30px; /* Ensure minimum height */
+}
+.room-selector-button:hover {
+    border-color: #888;
+}
+.room-selector-button.selected {
+    border-width: 2px;
+    border-color: #0056b3;
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
+}
+
+/* Modal Chosen Offers Display */
+.chosen-offers-container {
+    min-height: 30px;
+    padding: 5px;
+    border: 1px dashed #ddd;
+    background-color: #fafafa;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+.chosen-offers-container em {
+    color: #888;
+    font-size: 0.9em;
+}
+.chosen-offer-tag {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    border: 1px solid rgba(0,0,0,0.1);
+}
+
+/* Modal Final Selection Radio Buttons */
+#selection-options label {
+    display: block;
+    margin-bottom: 8px;
+    cursor: pointer;
+}
+#selection-options label[style*="opacity: 0.5"] { /* Style disabled labels */
+    cursor: not-allowed;
+    color: #888;
+}
+#selection-options input[type="radio"] {
+    margin-right: 5px;
+    vertical-align: middle;
+}
+#selection-options p { /* Message when disabled */
+    color: #888;
+    font-style: italic;
+    font-size: 0.9em;
+}
+
+/* Modal Submit Button */
+#submit-day {
+    padding: 10px 20px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 10px;
+    font-size: 1em;
+    transition: background-color 0.2s;
+}
+#submit-day:hover {
+    background-color: #218838;
+}
+
+.room-tag {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    border: 1px solid rgba(0,0,0,0.1);
+    margin: 2px; /* Add small margin for spacing */
+    line-height: 1.2; /* Ensure consistent line height */
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* --- Frequency List Grid Styles --- */
+
+/* Style the UL itself as a grid container */
+#frequency-list.frequency-grid {
+    display: grid;
+    /* Adjust columns: auto-fill creates as many columns as fit, */
+    /* minmax sets minimum width before wrapping, 1fr lets them grow */
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px; /* Gap between grid items */
+    padding-left: 0; /* Remove default UL padding */
+    list-style-type: none; /* Remove default bullets */
+}
+
+/* Style individual list items within the grid */
+#frequency-list li.frequency-item {
+    display: flex; /* Use flex to align tag and text */
+    align-items: center; /* Vertically center tag and text */
+    background-color: #f0f0f0;
+    padding: 5px;
+    border-radius: 4px;
+    border: 1px solid #e0e0e0;
+    /* Remove margin if gap handles spacing */
+    /* margin-bottom: 0; */
+}
+
+/* Style the frequency text part */
+.frequency-text {
+    font-size: 0.85em; /* Slightly smaller text */
+    color: #333;
+    margin-left: 5px; /* Space between tag and text */
+    white-space: nowrap; /* Prevent text wrapping */
+}
+
+
+
+/* Style for the fallback message when list is not a grid */
+#frequency-list li:not(.frequency-item) {
+    margin-bottom: 5px;
+    background-color: #f0f0f0;
+    padding: 3px 5px;
+    border-radius: 3px;
 }

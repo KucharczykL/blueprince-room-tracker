@@ -1,36 +1,52 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Predefined Room Data ---
+    // Replace with actual room names and colors from Blue Prince
+    const PREDEFINED_ROOMS = [
+        { name: "Kitchen", color: "#FFC300" }, { name: "Library", color: "#FF5733" },
+        { name: "Garden", color: "#C70039" }, { name: "Study", color: "#900C3F" },
+        { name: "Hall", color: "#581845" }, { name: "Attic", color: "#DAF7A6" },
+        { name: "Cellar", color: "#FFC300" }, { name: "Balcony", color: "#FF5733" },
+        { name: "Bedroom", color: "#C70039" }, { name: "Bathroom", color: "#900C3F" },
+        // Add more rooms until you have 100 (or fewer if needed)
+        // Placeholder rooms to reach 100 for the 10x10 grid example
+        ...Array.from({ length: 90 }, (_, i) => ({ name: `Room ${i + 11}`, color: `#${Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')}` }))
+    ].slice(0, 100); // Ensure exactly 100 rooms for the grid
+
     // --- DOM Element References ---
-    // ... (references remain the same) ...
     const gridContainer = document.getElementById('mansion-grid');
-    const cellInfoPanel = document.getElementById('cell-info');
+    // ** ADDED Missing Info Panel References **
+    const cellInfoPanel = document.getElementById('cell-info'); // Reference for the panel itself (already existed, but good to confirm)
     const selectedCellIdDisplay = document.getElementById('selected-cell-id');
     const dayCountDisplay = document.getElementById('day-count');
     const dayList = document.getElementById('day-list');
     const frequencyList = document.getElementById('frequency-list');
+    // Modal References
     const modal = document.getElementById('input-modal');
     const modalTitle = document.getElementById('modal-title');
     const closeModalButton = document.querySelector('.close-button');
     const submitDayButton = document.getElementById('submit-day');
-    const roomOfferInputs = [document.getElementById('room1'), document.getElementById('room2'), document.getElementById('room3')];
     const selectionOptionsContainer = document.getElementById('selection-options');
+    const editDayIndexInput = document.getElementById('edit-day-index');
+    const roomSelectorGrid = document.getElementById('room-grid-selector');
+    const chosenOffersDisplay = document.getElementById('chosen-offers-display');
+    // Control References
     const clearDataButton = document.getElementById('clear-all-data');
     const currentDayInput = document.getElementById('current-day-input');
     const prevDayButton = document.getElementById('prev-day');
     const nextDayButton = document.getElementById('next-day');
-    const editDayIndexInput = document.getElementById('edit-day-index');
 
 
     // --- Constants and State ---
-    // ... (constants remain the same) ...
     const ROWS = 9;
     const COLS = 5;
     let selectedCellElement = null;
     let roomData = {};
     let currentDay = 1;
+    let currentModalOffers = []; // Stores the {name, color} objects of the 3 selected rooms
+    const MAX_OFFERS = 3;
 
     // --- Current Day Logic ---
     function updateCurrentDayDisplay() {
-        // Only update the input value here. Grid/Info updates are triggered separately.
         currentDayInput.value = currentDay;
         console.log("Current Day set to:", currentDay);
     }
@@ -39,12 +55,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const newDay = currentDay + delta;
         if (newDay >= 1) {
             currentDay = newDay;
-            updateCurrentDayDisplay(); // Update input display
-            updateAllCellDisplays(); // Update grid for new day
-            if (selectedCellElement) { // Update info panel if needed
+            updateCurrentDayDisplay();
+            updateAllCellDisplays();
+            if (selectedCellElement) {
                 updateInfoPanel();
             }
-            // Save currentDay change immediately
             try {
                 localStorage.setItem('bluePrinceCurrentDay', currentDay.toString());
                 console.log("Current day saved.");
@@ -59,12 +74,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!isNaN(newDay) && newDay >= 1) {
             if (newDay !== currentDay) {
                 currentDay = newDay;
-                updateCurrentDayDisplay(); // Update input display
-                updateAllCellDisplays(); // Update grid for new day
-                if (selectedCellElement) { // Update info panel if needed
+                updateCurrentDayDisplay();
+                updateAllCellDisplays();
+                if (selectedCellElement) {
                     updateInfoPanel();
                 }
-                // Save currentDay change immediately
                  try {
                     localStorage.setItem('bluePrinceCurrentDay', currentDay.toString());
                     console.log("Current day saved.");
@@ -78,9 +92,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+
     // --- Data Persistence ---
     function loadData() {
-        // Load room data
         const storedRoomData = localStorage.getItem('bluePrinceRoomData');
         if (storedRoomData) {
             try {
@@ -94,8 +108,6 @@ document.addEventListener('DOMContentLoaded', () => {
             roomData = {};
             console.log("No room data found.");
         }
-
-        // Load current day
         const storedDay = localStorage.getItem('bluePrinceCurrentDay');
         if (storedDay) {
             const parsedDay = parseInt(storedDay, 10);
@@ -104,13 +116,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log("Current day loaded:", currentDay);
             }
         }
-        // *** DO NOT trigger UI updates here yet ***
-        // Just update the input field's initial value
         currentDayInput.value = currentDay;
     }
 
     function saveData() {
-        // This function now ONLY saves roomData. Current day is saved separately.
         try {
             for (const cellId in roomData) {
                 if (Array.isArray(roomData[cellId]) && roomData[cellId].length === 0) {
@@ -125,9 +134,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+
     // --- Grid Generation & Display ---
     function createGrid() {
-        // ... (grid creation logic remains the same) ...
         gridContainer.innerHTML = '';
         gridContainer.style.gridTemplateRows = `repeat(${ROWS}, 60px)`;
         gridContainer.style.gridTemplateColumns = `repeat(${COLS}, 60px)`;
@@ -162,53 +171,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateCellDisplay(cellId) {
         const cellElement = document.getElementById(cellId);
-        // Ensure we have a valid, non-fixed cell element
         if (!cellElement || cellElement.classList.contains('fixed-cell')) {
             return;
         }
-
-        const days = roomData[cellId] || []; // Get data for this cell, or empty array
-        let selectionToShow = null; // Default: show cell ID
-
-        // Find the entry for the EXACT current day using Array.prototype.find
+        const days = roomData[cellId] || [];
+        let selectionToShow = null;
         const entryForCurrentDay = days.find(dayEntry => dayEntry && typeof dayEntry.day === 'number' && dayEntry.day === currentDay);
-
-        // If an entry exists specifically for the current day, get its selection status
         if (entryForCurrentDay) {
-            selectionToShow = entryForCurrentDay.selected; // This could be null (if "None" selected) or a room name string
+            selectionToShow = entryForCurrentDay.selected;
         }
-        // If no entry exists for the exact current day, selectionToShow remains null.
-
-        // Now update the cell's appearance based ONLY on the selection for the exact current day
         if (selectionToShow) {
-            // If selectionToShow is a non-empty string (a room name)
             cellElement.textContent = selectionToShow;
             cellElement.classList.add('has-selection');
         } else {
-            // If selectionToShow is null, undefined, or ""
-            // (meaning no entry for current day, or "None" was selected for current day)
-            cellElement.textContent = cellId; // Revert to showing the cell ID
-            cellElement.classList.remove('has-selection'); // Remove bold styling
+            cellElement.textContent = cellId;
+            cellElement.classList.remove('has-selection');
         }
-
-        // --- Tooltip logic can still show the absolute latest selection for reference ---
         const absoluteLatestDay = days.length > 0 ? days[days.length - 1] : null;
         const tooltipSelection = absoluteLatestDay?.selected;
         cellElement.title = tooltipSelection ? `${cellId} - ${tooltipSelection} (Latest)` : cellId;
     }
 
-
     function updateAllCellDisplays() {
-        console.log("Updating all displays for day:", currentDay); // Keep this log for debugging
+        console.log("Updating all displays for day:", currentDay);
         const cells = gridContainer.querySelectorAll('.grid-cell:not(.fixed-cell)');
         cells.forEach(cell => updateCellDisplay(cell.id));
-        // No need to update info panel here, it updates on hover or data change
     }
 
 
     // --- UI Updates (Info Panel) ---
     function updateInfoPanel() {
-        // ... (this function remains the same) ...
+        // ** Check if elements exist before using them **
+        if (!selectedCellIdDisplay || !dayCountDisplay || !dayList || !frequencyList) {
+             console.error("Info panel elements not found!");
+             return;
+        }
+
         if (!selectedCellElement) {
             selectedCellIdDisplay.textContent = 'No cell selected';
             dayCountDisplay.textContent = '0';
@@ -233,9 +231,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 li.classList.add('current-day-item');
             }
 
+            // --- Header (Day Number + Delete Button) ---
             const header = document.createElement('h5');
+            // ... (header creation remains the same) ...
             header.textContent = `Day ${dayEntry.day}`;
-
             const deleteButton = document.createElement('button');
             deleteButton.textContent = '❌';
             deleteButton.classList.add('delete-day-button');
@@ -246,16 +245,48 @@ document.addEventListener('DOMContentLoaded', () => {
             header.appendChild(deleteButton);
             li.appendChild(header);
 
+
+            // --- Offered Rooms (Using Tags) ---
             const offersDiv = document.createElement('div');
             offersDiv.classList.add('day-offers');
-            const offeredText = Array.isArray(dayEntry.offered) ? dayEntry.offered.filter(r => r).join(', ') : 'N/A';
-            offersDiv.textContent = `Offered: ${offeredText || 'None'}`;
-            li.appendChild(offersDiv);
+            offersDiv.textContent = 'Offered: '; // Add prefix text
 
+            let hasOffers = false;
+            if (Array.isArray(dayEntry.offered)) {
+                dayEntry.offered.forEach(offer => {
+                    // Get name and color, handling potential old data
+                    const roomName = offer?.name || (typeof offer === 'string' ? offer : null);
+                    // Find the corresponding predefined room to get the color
+                    const predefinedRoom = PREDEFINED_ROOMS.find(r => r.name === roomName);
+                    const roomColor = predefinedRoom?.color; // Get color if found
+
+                    if (roomName && typeof roomName === 'string' && roomName.trim() !== '') {
+                        const tag = createRoomTagElement(roomName, roomColor); // Use the reusable function
+                        offersDiv.appendChild(tag);
+                        hasOffers = true;
+                    }
+                });
+            }
+            if (!hasOffers) {
+                offersDiv.appendChild(document.createTextNode('None')); // Append "None" text if no valid offers
+            }
+            li.appendChild(offersDiv);
+            // --- End Offered Rooms ---
+
+
+            // --- Selection Controls (Radio Buttons) ---
             const selectionDiv = document.createElement('div');
-            selectionDiv.classList.add('day-selection-controls');
+            // ... (radio button creation remains the same, using offeredNames derived earlier if needed, or re-derive) ...
+             selectionDiv.classList.add('day-selection-controls');
             selectionDiv.dataset.cellId = cellId;
             selectionDiv.dataset.dayNumber = dayEntry.day;
+
+            // Re-derive offeredNames for radio buttons (ensure consistency)
+            const offeredNames = Array.isArray(dayEntry.offered)
+                ? dayEntry.offered
+                      .map(offer => offer?.name || (typeof offer === 'string' ? offer : null))
+                      .filter(name => name && typeof name === 'string' && name.trim() !== '')
+                : [];
 
             const noneLabel = document.createElement('label');
             const noneRadio = document.createElement('input');
@@ -268,23 +299,20 @@ document.addEventListener('DOMContentLoaded', () => {
             noneLabel.appendChild(document.createTextNode(' None'));
             selectionDiv.appendChild(noneLabel);
 
-            if (Array.isArray(dayEntry.offered)) {
-                dayEntry.offered.forEach(room => {
-                    if (room) {
-                        const label = document.createElement('label');
-                        const radio = document.createElement('input');
-                        radio.type = 'radio';
-                        radio.name = `day-${cellId}-${dayEntry.day}-selection`;
-                        radio.value = room;
-                        radio.checked = dayEntry.selected === room;
-                        radio.addEventListener('change', handleChangeSelection);
-                        label.appendChild(radio);
-                        label.appendChild(document.createTextNode(` ${room}`));
-                        selectionDiv.appendChild(label);
-                    }
-                });
-            }
+            offeredNames.forEach(roomName => {
+                const label = document.createElement('label');
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = `day-${cellId}-${dayEntry.day}-selection`;
+                radio.value = roomName;
+                radio.checked = dayEntry.selected === roomName;
+                radio.addEventListener('change', handleChangeSelection);
+                label.appendChild(radio);
+                label.appendChild(document.createTextNode(` ${roomName}`));
+                selectionDiv.appendChild(label);
+            });
             li.appendChild(selectionDiv);
+            // --- End Selection Controls ---
 
             dayList.appendChild(li);
         });
@@ -293,41 +321,76 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateFrequencyList(cellId) {
-        // ... (this function remains the same) ...
+        // ** Check if element exists **
+        if (!frequencyList) return;
+
         frequencyList.innerHTML = '';
+        // ** Add grid class for styling **
+        frequencyList.classList.add('frequency-grid');
+
         const days = roomData[cellId] || [];
         if (days.length === 0) {
             frequencyList.innerHTML = '<li>No data logged.</li>';
+            // ** Remove grid class if no data **
+            frequencyList.classList.remove('frequency-grid');
             return;
         }
+
         const roomCounts = {};
         let totalOffers = 0;
+
         days.forEach(dayEntry => {
             if (Array.isArray(dayEntry.offered)) {
-                dayEntry.offered.forEach(room => {
-                    const trimmedRoom = room ? room.trim() : '';
-                    if (trimmedRoom !== '') {
-                        roomCounts[trimmedRoom] = (roomCounts[trimmedRoom] || 0) + 1;
-                        totalOffers++;
+                dayEntry.offered.forEach(offer => {
+                    const roomName = offer?.name || (typeof offer === 'string' ? offer : null);
+                    if (roomName && typeof roomName === 'string') {
+                        const trimmedRoom = roomName.trim();
+                        if (trimmedRoom !== '') {
+                            roomCounts[trimmedRoom] = (roomCounts[trimmedRoom] || 0) + 1;
+                            totalOffers++;
+                        }
                     }
                 });
             }
         });
+
         if (totalOffers === 0) {
-             frequencyList.innerHTML = '<li>No valid room offers logged.</li>';
-             return;
-        }
+            frequencyList.innerHTML = '<li>No valid room offers logged.</li>';
+            // ** Remove grid class if no valid offers **
+            frequencyList.classList.remove('frequency-grid');
+            return;
+       }
+
         const sortedRooms = Object.entries(roomCounts).sort(([, countA], [, countB]) => countB - countA);
-        sortedRooms.forEach(([room, count]) => {
+
+        sortedRooms.forEach(([roomName, count]) => {
             const probability = ((count / totalOffers) * 100).toFixed(1);
+
+            // Find the room color
+            const predefinedRoom = PREDEFINED_ROOMS.find(r => r.name === roomName);
+            const roomColor = predefinedRoom?.color;
+
+            // Create list item
             const li = document.createElement('li');
-            li.textContent = `${room}: ${count} time(s) (${probability}%)`;
+            li.classList.add('frequency-item'); // Add class for grid item styling
+
+            // Create room tag
+            const tag = createRoomTagElement(roomName, roomColor);
+            li.appendChild(tag);
+
+            // Create frequency text span
+            const freqText = document.createElement('span');
+            freqText.classList.add('frequency-text');
+            freqText.textContent = ` ${count} (${probability}%)`; // Add space before text
+            li.appendChild(freqText);
+
             frequencyList.appendChild(li);
         });
     }
 
+
+
     // --- Event Handlers ---
-    // ... (handleCellMouseOver, handleGridMouseOut, handleCellClick remain the same) ...
     function handleCellMouseOver(event) {
         if (modal.style.display === 'block') return;
         const hoveredElement = event.target.closest('.grid-cell');
@@ -339,7 +402,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         selectedCellElement = hoveredElement;
         selectedCellElement.classList.add('selected');
-        updateInfoPanel();
+        updateInfoPanel(); // This function now uses selectedCellIdDisplay etc.
     }
 
     function handleGridMouseOut(event) {
@@ -348,7 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (selectedCellElement) {
                 selectedCellElement.classList.remove('selected');
                 selectedCellElement = null;
-                updateInfoPanel();
+                updateInfoPanel(); // This function now uses selectedCellIdDisplay etc.
             }
         }
     }
@@ -363,9 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
-    function handleChangeSelection(event) {
-        // ... (this function remains the same) ...
+     function handleChangeSelection(event) {
         const radio = event.target;
         const controlsDiv = radio.closest('.day-selection-controls');
         const cellId = controlsDiv.dataset.cellId;
@@ -381,12 +442,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         roomData[cellId][dayIndex].selected = newSelection;
         console.log(`Changed selection for ${cellId}, Day ${dayNumber} to: ${newSelection}`);
-        saveData(); // Save roomData change
-        updateCellDisplay(cellId); // Update grid cell display
+        saveData();
+        updateCellDisplay(cellId);
     }
 
     function handleDeleteDay(event) {
-        // ... (this function remains the same) ...
         const button = event.target.closest('.delete-day-button');
         const cellId = button.dataset.cellId;
         const dayNumber = parseInt(button.dataset.dayNumber, 10);
@@ -400,178 +460,295 @@ document.addEventListener('DOMContentLoaded', () => {
         if (confirm(`Are you sure you want to delete Day ${dayNumber} for cell ${cellId}?`)) {
             roomData[cellId].splice(dayIndex, 1);
             console.log(`Deleted Day ${dayNumber} for cell ${cellId}`);
-            saveData(); // Save roomData change
+            saveData();
             updateCellDisplay(cellId);
-            updateInfoPanel();
+            updateInfoPanel(); // This function now uses selectedCellIdDisplay etc.
         }
     }
 
+
     // --- Modal Logic ---
-    // ... (openModal, handleModalOfferInputChange, updateModalSelectionOptions, closeModal, handleSubmitDay remain the same) ...
+    function populateRoomSelectorGrid() {
+        // ** Check if element exists **
+        if (!roomSelectorGrid) return;
+
+        roomSelectorGrid.innerHTML = '';
+        roomSelectorGrid.style.gridTemplateColumns = `repeat(10, 1fr)`;
+
+        PREDEFINED_ROOMS.forEach(room => {
+            const button = document.createElement('button');
+            button.classList.add('room-selector-button');
+            button.textContent = room.name;
+            button.title = room.name;
+            button.style.backgroundColor = room.color;
+            button.style.color = getContrastYIQ(room.color);
+            button.dataset.roomName = room.name;
+
+            if (currentModalOffers.some(offer => offer.name === room.name)) {
+                button.classList.add('selected');
+            }
+
+            button.addEventListener('click', handleRoomSelection);
+            roomSelectorGrid.appendChild(button);
+        });
+    }
+
+    function handleRoomSelection(event) {
+        const button = event.target;
+        const roomName = button.dataset.roomName;
+        const roomInfo = PREDEFINED_ROOMS.find(r => r.name === roomName); // Renamed variable
+
+        if (!roomInfo) return;
+
+        const isSelected = currentModalOffers.some(offer => offer.name === roomName);
+        const canSelectMore = currentModalOffers.length < MAX_OFFERS;
+
+        if (isSelected) {
+            currentModalOffers = currentModalOffers.filter(offer => offer.name !== roomName);
+            button.classList.remove('selected');
+        } else if (canSelectMore) {
+            currentModalOffers.push(roomInfo); // Push the whole room info object
+            button.classList.add('selected');
+        } else {
+            alert(`You can only select ${MAX_OFFERS} rooms.`);
+            return;
+        }
+
+        updateChosenOffersDisplay();
+        updateModalSelectionOptions();
+    }
+
+    function updateChosenOffersDisplay() {
+        if (!chosenOffersDisplay) return;
+
+        chosenOffersDisplay.innerHTML = ''; // Clear previous
+        if (currentModalOffers.length === 0) {
+            chosenOffersDisplay.innerHTML = '<em>No offers selected yet.</em>';
+            return;
+        }
+        currentModalOffers.forEach(offer => {
+            // Use the reusable function here
+            const tag = createRoomTagElement(offer.name, offer.color);
+            // Remove the specific class if you simplified the CSS
+            // tag.classList.add('chosen-offer-tag'); // This might not be needed anymore
+            chosenOffersDisplay.appendChild(tag);
+        });
+    }
+
     function openModal() {
-        if (!selectedCellElement) return;
+        // ** Check if elements exist **
+        if (!selectedCellElement || !modal || !modalTitle || !editDayIndexInput || !submitDayButton) return;
+
         const cellId = selectedCellElement.id;
+        currentModalOffers = [];
+
         const days = roomData[cellId] || [];
         const existingDayIndex = days.findIndex(d => d.day === currentDay);
         const existingDayData = existingDayIndex !== -1 ? days[existingDayIndex] : null;
+
         editDayIndexInput.value = existingDayIndex;
+
+        populateRoomSelectorGrid(); // Requires roomSelectorGrid
 
         if (existingDayData) {
             modalTitle.textContent = `Edit Day ${currentDay} for Cell: ${cellId}`;
             submitDayButton.textContent = 'Update Day';
-            roomOfferInputs.forEach((input, i) => {
-                input.value = existingDayData.offered[i] || '';
-            });
-            updateModalSelectionOptions(existingDayData.selected);
+
+            currentModalOffers = (existingDayData.offered || [])
+                .map(offerData => {
+                    const offerName = offerData?.name || offerData;
+                    return PREDEFINED_ROOMS.find(r => r.name === offerName);
+                })
+                .filter(Boolean);
+
+            // Update grid button visual state (requires roomSelectorGrid)
+            if (roomSelectorGrid) {
+                roomSelectorGrid.querySelectorAll('.room-selector-button').forEach(button => {
+                    if (currentModalOffers.some(offer => offer.name === button.dataset.roomName)) {
+                        button.classList.add('selected');
+                    } else {
+                        button.classList.remove('selected');
+                    }
+                });
+            }
+
+            updateChosenOffersDisplay(); // Requires chosenOffersDisplay
+            updateModalSelectionOptions(existingDayData.selected); // Requires selectionOptionsContainer
+
         } else {
             modalTitle.textContent = `Log Day ${currentDay} for Cell: ${cellId}`;
             submitDayButton.textContent = 'Log This Day';
-            roomOfferInputs.forEach(input => input.value = '');
-            updateModalSelectionOptions(null);
+            updateChosenOffersDisplay(); // Requires chosenOffersDisplay
+            updateModalSelectionOptions(null); // Requires selectionOptionsContainer
         }
-        roomOfferInputs.forEach(input => {
-            input.removeEventListener('input', handleModalOfferInputChange);
-            input.addEventListener('input', handleModalOfferInputChange);
-        });
-        modal.style.display = 'block';
-        requestAnimationFrame(() => {
-             roomOfferInputs[0].focus();
-        });
-    }
 
-    function handleModalOfferInputChange() {
-        updateModalSelectionOptions();
+        modal.style.display = 'block';
     }
 
     function updateModalSelectionOptions(preSelection = null) {
+        // ** Check if element exists **
+        if (!selectionOptionsContainer) return;
+
         selectionOptionsContainer.innerHTML = '';
-        const offers = roomOfferInputs.map(input => input.value.trim()).filter(offer => offer !== '');
-        const uniqueOffers = [...new Set(offers)];
+        const enableSelection = currentModalOffers.length === MAX_OFFERS;
+
         const noneLabel = document.createElement('label');
         const noneRadio = document.createElement('input');
         noneRadio.type = 'radio';
         noneRadio.name = 'modal-selection';
         noneRadio.value = '';
         noneRadio.checked = preSelection == null;
+        noneRadio.disabled = !enableSelection;
         noneLabel.appendChild(noneRadio);
         noneLabel.appendChild(document.createTextNode(' None (No Selection)'));
+        if (!enableSelection) noneLabel.style.opacity = '0.5';
         selectionOptionsContainer.appendChild(noneLabel);
-        uniqueOffers.forEach(offer => {
+
+        currentModalOffers.forEach(offer => {
             const label = document.createElement('label');
             const radio = document.createElement('input');
             radio.type = 'radio';
             radio.name = 'modal-selection';
-            radio.value = offer;
-            radio.checked = preSelection === offer;
+            radio.value = offer.name;
+            radio.checked = preSelection === offer.name;
+            radio.disabled = !enableSelection;
             label.appendChild(radio);
-            label.appendChild(document.createTextNode(` ${offer}`));
+            label.appendChild(document.createTextNode(` ${offer.name}`));
+             if (!enableSelection) label.style.opacity = '0.5';
             selectionOptionsContainer.appendChild(label);
         });
-        if (uniqueOffers.length === 0 && preSelection == null) {
-             selectionOptionsContainer.insertAdjacentHTML('beforeend', '<p><em>Enter offers to enable selection.</em></p>');
+
+        if (!enableSelection && currentModalOffers.length < MAX_OFFERS) {
+             selectionOptionsContainer.insertAdjacentHTML('beforeend', `<p><em>Select ${MAX_OFFERS - currentModalOffers.length} more room(s) to enable final selection.</em></p>`);
+        } else if (!enableSelection && currentModalOffers.length > MAX_OFFERS) {
+             selectionOptionsContainer.insertAdjacentHTML('beforeend', `<p><em>Too many offers selected. Please deselect some.</em></p>`);
         }
     }
 
+
     function closeModal() {
+        // ** Check if element exists **
+        if (!modal || !editDayIndexInput) return;
         modal.style.display = 'none';
-        roomOfferInputs.forEach(input => {
-            input.removeEventListener('input', handleModalOfferInputChange);
-        });
         editDayIndexInput.value = "-1";
+        currentModalOffers = [];
     }
 
     function handleSubmitDay() {
-        if (!selectedCellElement) return;
+        // ** Check if elements exist **
+        if (!selectedCellElement || !selectionOptionsContainer) return;
+
         const cellId = selectedCellElement.id;
         const editIndex = parseInt(editDayIndexInput.value, 10);
-        const offered = roomOfferInputs.map(input => input.value.trim());
-        if (offered.every(room => room === '')) {
-             alert("Please enter at least one room offer.");
-             roomOfferInputs[0].focus();
-             return;
+
+        if (currentModalOffers.length !== MAX_OFFERS) {
+            alert(`Please select exactly ${MAX_OFFERS} rooms from the grid.`);
+            return;
         }
+        const offered = currentModalOffers;
+
         const selectedRadio = selectionOptionsContainer.querySelector('input[name="modal-selection"]:checked');
         const selected = selectedRadio ? (selectedRadio.value || null) : null;
+
         if (!roomData[cellId]) {
             roomData[cellId] = [];
         }
+
         if (editIndex !== -1) {
             if (roomData[cellId][editIndex] && roomData[cellId][editIndex].day === currentDay) {
                  roomData[cellId][editIndex].offered = offered;
                  roomData[cellId][editIndex].selected = selected;
                  console.log(`Updated Day ${currentDay} for ${cellId}`);
             } else {
-                 console.error(`Error updating: Index ${editIndex} does not correspond to Day ${currentDay} for ${cellId}.`);
-                 alert(`Error updating day data. Data mismatch detected.`);
-                 closeModal();
-                 return;
+                 console.error(`Error updating: Index ${editIndex} mismatch.`);
+                 alert(`Error updating day data.`);
+                 closeModal(); return;
             }
         } else {
             if (roomData[cellId].some(d => d.day === currentDay)) {
-                alert(`Data for Day ${currentDay} already exists. Cannot add duplicate. Please edit instead.`);
-                closeModal();
-                return;
+                alert(`Data for Day ${currentDay} already exists.`);
+                closeModal(); return;
             }
             const newDayEntry = { day: currentDay, offered: offered, selected: selected };
             roomData[cellId].push(newDayEntry);
             roomData[cellId].sort((a, b) => a.day - b.day);
             console.log(`Added Day ${currentDay} for ${cellId}:`, newDayEntry);
         }
-        saveData(); // Save roomData change
+
+        saveData();
         updateCellDisplay(cellId);
-        updateInfoPanel();
-        closeModal();
+        updateInfoPanel(); // Requires info panel elements
+        closeModal(); // Requires modal elements
     }
+
+// --- Helper Functions ---
+function getContrastYIQ(hexcolor){
+    // ... (keep existing code) ...
+    if (!hexcolor) return 'black';
+    hexcolor = hexcolor.replace("#", "");
+    if (hexcolor.length !== 6) return 'black';
+    const r = parseInt(hexcolor.substr(0,2),16);
+    const g = parseInt(hexcolor.substr(2,2),16);
+    const b = parseInt(hexcolor.substr(4,2),16);
+    if (isNaN(r) || isNaN(g) || isNaN(b)) return 'black';
+    const yiq = ((r*299)+(g*587)+(b*114))/1000;
+    return (yiq >= 128) ? 'black' : 'white';
+}
+
+/**
+ * Creates a styled span element representing a room tag.
+ * @param {string} roomName - The name of the room.
+ * @param {string} roomColor - The hex color code for the room.
+ * @returns {HTMLSpanElement} - The styled span element.
+ */
+function createRoomTagElement(roomName, roomColor) {
+    const span = document.createElement('span');
+    span.classList.add('room-tag'); // Use a generic class for styling
+    span.textContent = roomName;
+    span.style.backgroundColor = roomColor || '#eee'; // Default color if missing
+    span.style.color = getContrastYIQ(roomColor);
+    span.title = roomName; // Tooltip
+    return span;
+}
+// --- End Helper Functions ---
 
 
     // --- Initialization ---
-    loadData(); // 1. Load data and current day value
-    createGrid(); // 2. Create the grid DOM elements
-    updateAllCellDisplays(); // 3. *** NOW update the grid display based on loaded data ***
+    loadData();
+    createGrid();
+    updateAllCellDisplays();
 
     // --- Event Listeners ---
-    // Day Controls
-    prevDayButton.addEventListener('click', () => changeCurrentDay(-1));
-    nextDayButton.addEventListener('click', () => changeCurrentDay(1));
-    currentDayInput.addEventListener('change', (e) => setCurrentDay(e.target.value));
+    // ** Add checks for element existence before adding listeners **
+    if (prevDayButton) prevDayButton.addEventListener('click', () => changeCurrentDay(-1));
+    if (nextDayButton) nextDayButton.addEventListener('click', () => changeCurrentDay(1));
+    if (currentDayInput) currentDayInput.addEventListener('change', (e) => setCurrentDay(e.target.value));
+    if (closeModalButton) closeModalButton.addEventListener('click', closeModal);
+    if (submitDayButton) submitDayButton.addEventListener('click', handleSubmitDay);
 
-    // Modal
-    closeModalButton.addEventListener('click', closeModal);
-    submitDayButton.addEventListener('click', handleSubmitDay);
     window.addEventListener('click', (event) => {
         if (event.target === modal) closeModal();
     });
-    document.addEventListener('keypress', function (e) {
-        if (e.key === 'Enter' && modal.style.display === 'block') {
-             if (modal.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') {
-                 e.preventDefault();
-                 handleSubmitDay();
-             }
-        }
-    });
 
-    // Clear Data
     if (clearDataButton) {
         clearDataButton.addEventListener('click', () => {
-            if (modal.style.display === 'block') closeModal();
+             if (modal && modal.style.display === 'block') closeModal(); // Check modal exists
             if (confirm('Are you sure you want to clear ALL logged data for ALL cells? This cannot be undone.')) {
                 roomData = {};
                 currentDay = 1;
-                // Save empty room data
                 try { localStorage.setItem('bluePrinceRoomData', JSON.stringify(roomData)); } catch(e) { console.error("Error clearing room data:", e); }
-                // Save reset current day
                 try { localStorage.setItem('bluePrinceCurrentDay', currentDay.toString()); } catch(e) { console.error("Error resetting current day:", e); }
-
                 if (selectedCellElement) {
                     selectedCellElement.classList.remove('selected');
                     selectedCellElement = null;
                 }
-                updateCurrentDayDisplay(); // Update input field
-                updateAllCellDisplays(); // Reset grid display
-                updateInfoPanel(); // Clear info panel
+                updateCurrentDayDisplay(); // Requires currentDayInput
+                updateAllCellDisplays(); // Requires gridContainer
+                updateInfoPanel(); // Requires info panel elements
                 alert('All data cleared.');
             }
         });
     }
 
 }); // End of DOMContentLoaded
+
