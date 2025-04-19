@@ -3,6 +3,10 @@ body {
     line-height: 1.6;
     margin: 20px;
     background-color: #f4f4f4;
+    --cell-width: 70px;
+    --cell-height: 70px;
+    --room-selection-grid-x: 12;
+    --room-selection-grid-y: 10;
 }
 
 h1, h2, h3, h4 {
@@ -48,87 +52,104 @@ h1, h2, h3, h4 {
 /* Main Layout Container */
 .container {
     display: flex;
-    /* flex-wrap: wrap; */ /* Removed to keep items in a row */
     gap: 20px;
-    align-items: flex-start; /* Align items to the top */
+    align-items: flex-start;
 }
 
-/* Mansion Grid Styling */
+/* Mansion Grid Container Styling */
 .grid-container {
     display: grid;
-    grid-template-columns: repeat(5, 60px); /* 5 columns */
-    grid-template-rows: repeat(9, 60px);    /* 9 rows */
-    gap: 5px;
+    grid-template-columns: repeat(5, var(--cell-width)); /* Cell width defined in .grid-cell */
+    grid-template-rows: repeat(9, var(--cell-height));    /* Cell height defined in .grid-cell */
+    gap: 5px; /* Spacing between cells */
     border: 2px solid #555;
     padding: 5px;
     background-color: #ddd;
     width: fit-content;
     height: fit-content;
-    flex-shrink: 0; /* Prevent grid from shrinking */
+    flex-shrink: 0;
 }
 
+/* --- Unified Grid Cell / Room Tag Style --- */
 .grid-cell {
-    background-color: #fff;
-    border: 1px solid #aaa;
-    display: flex;
+    background-color: #fff; /* Default white background */
+    color: #333; /* Default text color */
+    border: 1px solid #aaa; /* Default border */
+    display: flex; /* Use flex for centering content */
     justify-content: center;
     align-items: center;
+    width: var(--cell-width);
+    height: var(--cell-height);
     font-size: 10px;
     font-weight: normal;
     cursor: pointer;
-    transition: background-color 0.2s, border-color 0.2s;
+    transition: border-color 0.2s, background-color 0.2s;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    padding: 2px;
+    padding: 2px; /* Padding inside the cell */
     box-sizing: border-box;
     text-align: center;
+    border-radius: 0; /* Square corners */
+    line-height: 1.2;
+    white-space: break-spaces;
 }
+
+/* Style for cells displaying a selected room name */
+/* This applies to ALL grid cells now */
 .grid-cell.has-selection {
     font-weight: bold;
-    font-size: 9px;
+    font-size: 9px; /* Adjust if needed */
+    /* Border color/width is set by JS */
 }
+
+/* Hover state for ALL grid cells */
 .grid-cell:hover {
     background-color: #e0e0e0;
 }
-.grid-cell.selected {
-    background-color: #a0c4ff;
-    border: 2px solid #0056b3;
+
+/* Selected state for the MAIN grid cell */
+/* We still need a way to highlight the *selected cell* in the main grid */
+.grid-container .grid-cell.selected {
+    outline-offset: -3px;
 }
-.grid-cell.fixed-cell {
+
+/* Fixed cells in main grid */
+/* These still need distinct styling */
+.grid-container .grid-cell.fixed-cell {
     background-color: #b0bec5;
     font-weight: bold;
     cursor: default;
-    border-color: #78909c;
+    border: 1px solid #78909c !important;
+    color: #333;
+    outline: none;
+    box-shadow: none;
 }
-.grid-cell.fixed-cell:hover {
+.grid-container .grid-cell.fixed-cell:hover {
     background-color: #b0bec5;
 }
-.grid-cell.fixed-cell.selected {
-    background-color: #b0bec5;
-    border: 1px solid #78909c;
+.grid-container .grid-cell.fixed-cell.selected {
+     outline: none;
+     box-shadow: none;
 }
 
 /* Controls Panel Styling (Clear Button) */
 .controls-panel {
-    /* width: 100%; */ /* Removed */
     margin-top: 10px;
-    width: fit-content; /* Takes only needed width */
-    /* Consider adding 'order: 3;' if you want it explicitly last */
+    width: fit-content;
 }
 
 /* Info Panel Styling */
 .info-panel {
-    flex-grow: 1; /* Allows panel to take remaining horizontal space */
+    flex-grow: 1;
     background-color: #fff;
     padding: 15px;
     border: 1px solid #ccc;
     border-radius: 5px;
     min-width: 350px;
-    /* max-height: calc(9 * 60px + 8 * 5px + 2 * 5px + 2 * 2px); */ /* Optional: Limit height */
     overflow-y: auto;
 }
-.info-panel p { /* Instruction text */
+.info-panel p {
     font-size: 0.9em;
     color: #666;
     margin-bottom: 15px;
@@ -151,13 +172,13 @@ h1, h2, h3, h4 {
     border: 1px solid #eee;
     border-radius: 4px;
     margin-bottom: 8px;
-    border-left: 4px solid transparent; /* Default border */
+    border-left: 4px solid transparent;
 }
 .day-list-item.current-day-item {
-    border-left: 4px solid #007bff; /* Highlight current day */
+    border-left: 4px solid #007bff;
     background-color: #e7f3ff;
 }
-.day-list-item h5 { /* Day number header */
+.day-list-item h5 {
     margin: 0 0 5px 0;
     font-size: 1em;
     display: flex;
@@ -171,7 +192,16 @@ h1, h2, h3, h4 {
     margin-bottom: 5px;
     color: #555;
     font-size: 0.95em;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px; /* Use gap for spacing */
+    align-items: center;
 }
+/* Remove margin from .grid-cell when inside .day-offers if needed */
+.day-offers .grid-cell {
+    margin: 0;
+}
+
 .day-selection-controls label {
     margin-right: 10px;
     cursor: pointer;
@@ -200,8 +230,32 @@ h1, h2, h3, h4 {
     opacity: 1;
 }
 
-/* Frequency List Item Styling */
-#frequency-list li {
+/* --- Frequency List Grid Styles --- */
+#frequency-list.frequency-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+    padding-left: 0;
+    list-style-type: none;
+}
+#frequency-list li.frequency-item {
+    display: flex;
+    align-items: center;
+    background-color: transparent;
+    border: none;
+    padding: 0;
+}
+/* Remove margin from .grid-cell when inside .frequency-item */
+#frequency-list li.frequency-item .grid-cell {
+    margin: 0;
+}
+.frequency-text {
+    font-size: 0.85em;
+    color: #333;
+    margin-left: 5px;
+    white-space: nowrap;
+}
+#frequency-list li:not(.frequency-item) {
     margin-bottom: 5px;
     background-color: #f0f0f0;
     padding: 3px 5px;
@@ -224,11 +278,12 @@ h1, h2, h3, h4 {
 
 .modal-content {
     background-color: #fefefe;
-    margin: 5% auto; /* Reduced top margin */
+    margin: 5% auto;
     padding: 25px;
     border: 1px solid #888;
     width: 90%;
-    max-width: 550px; /* Wider modal for room grid */
+    /* Adjust max-width based on --room-selection-grid-x cells * (--cell-width + 4px gap) */
+    max-width: calc(var(--room-selection-grid-x) * (var(--cell-width) + 4px));
     border-radius: 8px;
     box-shadow: 0 5px 15px rgba(0,0,0,0.2);
 }
@@ -257,7 +312,7 @@ h1, h2, h3, h4 {
     padding-bottom: 15px;
     border-bottom: 1px solid #eee;
 }
-.modal-section:last-of-type { /* Use last-of-type for better targeting */
+.modal-section:last-of-type {
     border-bottom: none;
     margin-bottom: 10px;
 }
@@ -270,60 +325,56 @@ h1, h2, h3, h4 {
 /* Modal Room Selector Grid */
 .room-grid-selector-container {
     display: grid;
-    grid-template-columns: repeat(10, 1fr);
+    grid-template-columns: repeat(var(--room-selection-grid-x), var(--cell-width)); /* Use fixed cell width */
     gap: 4px;
     margin-bottom: 15px;
-    max-height: 250px;
-    overflow-y: auto;
     border: 1px solid #ccc;
     padding: 5px;
     background-color: #f8f8f8;
+    align-content: start;
+    justify-content: start; /* Align grid items to the start */
+    width: fit-content; /* Make container only as wide as grid */
 }
 
+/* Use .grid-cell style directly for buttons */
 .room-selector-button {
-    padding: 5px 2px;
-    font-size: 9px;
-    border: 1px solid #ccc;
-    cursor: pointer;
-    text-align: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    border-radius: 3px;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    line-height: 1.2; /* Adjust line height */
-    min-height: 30px; /* Ensure minimum height */
+    /* Inherits width, height, display, padding, etc. from .grid-cell */
+    /* Ensure border style is solid if JS only sets color/width */
+    border-style: solid;
+    /* Remove margin if gap is used in container */
+    margin: 0 !important;
 }
+/* Hover state specific to modal buttons */
 .room-selector-button:hover {
-    border-color: #888;
+     background-color: #e0e0e0; /* Match base hover */
 }
+/* Selection state specific to modal buttons */
 .room-selector-button.selected {
-    border-width: 2px;
-    border-color: #0056b3;
-    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
+    outline-offset: -3px;
+    background-color: #e0e0e0;
+
 }
+
 
 /* Modal Chosen Offers Display */
 .chosen-offers-container {
-    min-height: 30px;
+    min-height: 64px;
     padding: 5px;
     border: 1px dashed #ddd;
     background-color: #fafafa;
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 5px; /* Use gap for spacing */
     align-items: center;
+}
+/* Remove margin from cells in this container */
+.chosen-offers-container .grid-cell {
+    margin: 0;
 }
 .chosen-offers-container em {
     color: #888;
     font-size: 0.9em;
-}
-.chosen-offer-tag {
-    display: inline-block;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 0.9em;
-    border: 1px solid rgba(0,0,0,0.1);
+    margin: 2px;
 }
 
 /* Modal Final Selection Radio Buttons */
@@ -332,7 +383,7 @@ h1, h2, h3, h4 {
     margin-bottom: 8px;
     cursor: pointer;
 }
-#selection-options label[style*="opacity: 0.5"] { /* Style disabled labels */
+#selection-options label[style*="opacity: 0.5"] {
     cursor: not-allowed;
     color: #888;
 }
@@ -340,7 +391,7 @@ h1, h2, h3, h4 {
     margin-right: 5px;
     vertical-align: middle;
 }
-#selection-options p { /* Message when disabled */
+#selection-options p {
     color: #888;
     font-style: italic;
     font-size: 0.9em;
@@ -360,59 +411,4 @@ h1, h2, h3, h4 {
 }
 #submit-day:hover {
     background-color: #218838;
-}
-
-.room-tag {
-    display: inline-block;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 0.9em;
-    border: 1px solid rgba(0,0,0,0.1);
-    margin: 2px; /* Add small margin for spacing */
-    line-height: 1.2; /* Ensure consistent line height */
-    text-align: center;
-    white-space: nowrap;
-}
-
-/* --- Frequency List Grid Styles --- */
-
-/* Style the UL itself as a grid container */
-#frequency-list.frequency-grid {
-    display: grid;
-    /* Adjust columns: auto-fill creates as many columns as fit, */
-    /* minmax sets minimum width before wrapping, 1fr lets them grow */
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 8px; /* Gap between grid items */
-    padding-left: 0; /* Remove default UL padding */
-    list-style-type: none; /* Remove default bullets */
-}
-
-/* Style individual list items within the grid */
-#frequency-list li.frequency-item {
-    display: flex; /* Use flex to align tag and text */
-    align-items: center; /* Vertically center tag and text */
-    background-color: #f0f0f0;
-    padding: 5px;
-    border-radius: 4px;
-    border: 1px solid #e0e0e0;
-    /* Remove margin if gap handles spacing */
-    /* margin-bottom: 0; */
-}
-
-/* Style the frequency text part */
-.frequency-text {
-    font-size: 0.85em; /* Slightly smaller text */
-    color: #333;
-    margin-left: 5px; /* Space between tag and text */
-    white-space: nowrap; /* Prevent text wrapping */
-}
-
-
-
-/* Style for the fallback message when list is not a grid */
-#frequency-list li:not(.frequency-item) {
-    margin-bottom: 5px;
-    background-color: #f0f0f0;
-    padding: 3px 5px;
-    border-radius: 3px;
 }
