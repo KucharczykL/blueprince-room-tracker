@@ -11,6 +11,7 @@ h1, h2, h3, h4 {
 
 .container {
     display: flex;
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
     gap: 20px;
 }
 
@@ -24,6 +25,7 @@ h1, h2, h3, h4 {
     background-color: #ddd;
     width: fit-content; /* Adjust width to content */
     height: fit-content; /* Adjust height to content */
+    flex-shrink: 0; /* Prevent grid from shrinking too much */
 }
 
 .grid-cell {
@@ -33,14 +35,22 @@ h1, h2, h3, h4 {
     justify-content: center;
     align-items: center;
     font-size: 10px;
+    font-weight: normal; /* Default font weight */
     cursor: pointer;
-    transition: background-color 0.2s;
-    overflow: hidden; /* Hide overflow */
-    text-overflow: ellipsis; /* Add ellipsis for overflow */
-    white-space: nowrap; /* Prevent wrapping */
+    transition: background-color 0.2s, border-color 0.2s;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     padding: 2px;
-    box-sizing: border-box; /* Include padding and border in element's total width and height */
+    box-sizing: border-box;
+    text-align: center; /* Center text */
 }
+/* Style for cells displaying a selected room name */
+.grid-cell.has-selection {
+    font-weight: bold;
+    font-size: 9px; /* Slightly smaller if names are long */
+}
+
 
 .grid-cell:hover {
     background-color: #e0e0e0;
@@ -51,53 +61,126 @@ h1, h2, h3, h4 {
     border: 2px solid #0056b3;
 }
 
+.grid-cell.fixed-cell {
+    background-color: #b0bec5; /* A neutral greyish color */
+    font-weight: bold;
+    cursor: default; /* Indicate it's not clickable like the others */
+    border-color: #78909c;
+}
+.grid-cell.fixed-cell:hover {
+    background-color: #b0bec5; /* Keep the same background on hover */
+}
+.grid-cell.fixed-cell.selected { /* Should not happen, but prevent style */
+    background-color: #b0bec5;
+    border: 1px solid #78909c;
+}
+
+.controls-panel {
+    width: 100%; /* Take full width below grid/info */
+    margin-top: 10px;
+}
+
 .info-panel {
     flex-grow: 1;
     background-color: #fff;
     padding: 15px;
     border: 1px solid #ccc;
     border-radius: 5px;
-    min-width: 300px; /* Ensure panel has some width */
-    max-height: 600px; /* Limit height */
+    min-width: 350px; /* Ensure panel has some width */
+    max-height: calc(9 * 60px + 8 * 5px + 2 * 5px + 2 * 2px); /* Match grid height approx */
     overflow-y: auto; /* Add scroll if content overflows */
 }
 
-#visit-list, #probability-list {
+#day-list, #frequency-list {
     list-style-type: none;
     padding-left: 0;
     font-size: 0.9em;
-    max-height: 200px; /* Limit list height */
+    max-height: 250px; /* Limit list height */
     overflow-y: auto; /* Add scroll to lists */
+    margin-bottom: 15px;
 }
 
-#visit-list li, #probability-list li {
-    margin-bottom: 5px;
+/* Styles for items in the Day List */
+.day-list-item {
     background-color: #f9f9f9;
+    padding: 8px;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.day-list-item h5 { /* Day number */
+    margin: 0 0 5px 0;
+    font-size: 1em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.day-offers {
+    margin-bottom: 5px;
+    color: #555;
+}
+
+.day-selection-controls label {
+    margin-right: 10px;
+    cursor: pointer;
+    display: inline-block; /* Layout radio buttons */
+    font-size: 0.95em;
+}
+.day-selection-controls input[type="radio"] {
+    margin-right: 3px;
+}
+
+.delete-day-button {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    font-size: 1.1em; /* Make X slightly larger */
+    padding: 0 3px;
+    margin-left: 5px;
+    line-height: 1;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    vertical-align: middle; /* Align with Day number */
+}
+
+.delete-day-button:hover {
+    color: #a71d2a;
+    opacity: 1;
+}
+
+#frequency-list li {
+    margin-bottom: 5px;
+    background-color: #f0f0f0;
     padding: 3px 5px;
     border-radius: 3px;
 }
 
-/* Modal Styles */
+
+/* --- Modal Styles --- */
 .modal {
-    display: none; /* Hidden by default */
-    position: fixed; /* Stay in place */
-    z-index: 1; /* Sit on top */
+    display: none;
+    position: fixed;
+    z-index: 10; /* Ensure modal is on top */
     left: 0;
     top: 0;
     width: 100%;
     height: 100%;
-    overflow: auto; /* Enable scroll if needed */
-    background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+    overflow: auto;
+    background-color: rgba(0,0,0,0.5); /* Slightly darker background */
 }
 
 .modal-content {
     background-color: #fefefe;
-    margin: 15% auto; /* 15% from the top and centered */
-    padding: 20px;
+    margin: 10% auto; /* Adjust vertical margin */
+    padding: 25px;
     border: 1px solid #888;
-    width: 80%; /* Could be more or less, depending on screen size */
-    max-width: 400px;
-    border-radius: 5px;
+    width: 90%;
+    max-width: 450px; /* Slightly wider modal */
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
 }
 
 .close-button {
@@ -105,6 +188,7 @@ h1, h2, h3, h4 {
     float: right;
     font-size: 28px;
     font-weight: bold;
+    line-height: 1;
 }
 
 .close-button:hover,
@@ -114,86 +198,60 @@ h1, h2, h3, h4 {
     cursor: pointer;
 }
 
-#input-modal label {
-    display: inline-block;
-    width: 100px;
+.modal-section {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+.modal-section:last-child {
+    border-bottom: none;
     margin-bottom: 10px;
 }
-#input-modal input[type="text"] {
-    width: calc(100% - 120px);
-    padding: 5px;
+
+.modal-section h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #555;
+}
+
+
+#input-modal label { /* Labels for offers */
+    display: inline-block;
+    width: 60px; /* Smaller width for offer labels */
+    margin-bottom: 10px;
+}
+#input-modal input[type="text"] { /* Inputs for offers */
+    width: calc(100% - 75px); /* Adjust width */
+    padding: 6px;
     margin-bottom: 10px;
     border: 1px solid #ccc;
     border-radius: 3px;
 }
-#input-modal button {
-    padding: 10px 15px;
-    background-color: #007bff;
+
+#selection-options label { /* Labels for radio buttons */
+    display: block; /* Each option on a new line */
+    margin-bottom: 8px;
+    cursor: pointer;
+}
+#selection-options input[type="radio"] {
+    margin-right: 5px;
+}
+
+
+#submit-day { /* Submit button */
+    padding: 10px 20px;
+    background-color: #28a745; /* Green color */
     color: white;
     border: none;
-    border-radius: 3px;
+    border-radius: 5px;
     cursor: pointer;
     margin-top: 10px;
-}
-#input-modal button:hover {
-    background-color: #0056b3;
-}
-/* Add these styles to style.css */
-
-.grid-cell {
-    background-color: #fff;
-    border: 1px solid #aaa;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 10px; /* Or your preferred size */
-    cursor: pointer;
+    font-size: 1em;
     transition: background-color 0.2s;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    /* Revert padding back to original/simpler value */
-    padding: 2px;
-    box-sizing: border-box;
-    /* position: relative; is no longer needed */
-
-.add-data-button {
-    position: absolute;
-    top: 2px;
-    right: 2px;
-    width: 18px; /* Adjust size as needed */
-    height: 18px; /* Adjust size as needed */
-    background-color: #28a745; /* Green background */
-    color: white;
-    border: none;
-    border-radius: 50%; /* Make it circular */
-    font-size: 14px; /* Adjust '+' size */
-    font-weight: bold;
-    line-height: 16px; /* Center the '+' vertically */
-    text-align: center;
-    cursor: pointer;
-    display: none; /* Hidden by default */
-    z-index: 1; /* Ensure it's above cell content if needed */
-    padding: 0; /* Remove default button padding */
-    box-shadow: 1px 1px 2px rgba(0,0,0,0.3); /* Optional shadow */
+}
+#submit-day:hover {
+    background-color: #218838;
 }
 
-.grid-cell:hover .add-data-button {
-    display: block; /* Show button on cell hover */
-}
-
-.add-data-button:hover {
-    background-color: #218838; /* Darker green on hover */
-}
-
-/* Ensure fixed cells don't show the button */
-.grid-cell.fixed-cell:hover .add-data-button {
-    display: none;
-}
-
-/* Adjust cell padding slightly if needed to avoid overlap */
-.grid-cell {
-    /* ... */
-    padding: 2px 22px 2px 2px; /* Add padding on the right to make space for the button */
-    /* ... */
-}
+/* Remove styles for the old delete-visit-button if they exist */
+/* Remove styles for add-data-button */

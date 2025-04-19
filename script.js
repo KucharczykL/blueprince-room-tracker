@@ -3,23 +3,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const gridContainer = document.getElementById('mansion-grid');
     const cellInfoPanel = document.getElementById('cell-info');
     const selectedCellIdDisplay = document.getElementById('selected-cell-id');
-    const visitCountDisplay = document.getElementById('visit-count');
-    const visitList = document.getElementById('visit-list');
-    const probabilityList = document.getElementById('probability-list');
+    const dayCountDisplay = document.getElementById('day-count'); // Renamed
+    const dayList = document.getElementById('day-list'); // Renamed
+    const frequencyList = document.getElementById('frequency-list'); // Renamed
     const modal = document.getElementById('input-modal');
     const modalTitle = document.getElementById('modal-title');
     const closeModalButton = document.querySelector('.close-button');
-    const submitRoomsButton = document.getElementById('submit-rooms');
-    const roomInputs = [document.getElementById('room1'), document.getElementById('room2'), document.getElementById('room3')];
-    const clearVisitsButton = document.getElementById('clear-visits');
-    const clearProbabilitiesButton = document.getElementById('clear-probabilities');
-    const recalculateButton = document.getElementById('recalculate-probabilities');
+    const submitDayButton = document.getElementById('submit-day'); // Renamed
+    const roomOfferInputs = [document.getElementById('room1'), document.getElementById('room2'), document.getElementById('room3')];
+    const selectionOptionsContainer = document.getElementById('selection-options');
+    const clearDataButton = document.getElementById('clear-all-data'); // Renamed
 
     // --- Constants and State ---
     const ROWS = 9;
     const COLS = 5;
-    let selectedCell = null; // Holds the currently selected cell element (selected by hover)
-    let roomData = {}; // Main data store
+    let selectedCellElement = null; // Holds the currently selected cell DOM element
+    // New Data Structure: { "R1C1": [ { day: 1, offered: ["A","B","C"], selected: "B" }, ... ], ... }
+    let roomData = {};
 
     // --- Data Persistence ---
     function loadData() {
@@ -28,14 +28,17 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 roomData = JSON.parse(storedData);
                 console.log("Data loaded from localStorage.");
+                // Optional: Add migration logic here if old data structure exists
             } catch (e) {
                 console.error("Error parsing data from localStorage:", e);
-                roomData = {}; // Reset to empty if data is corrupt
+                roomData = {};
             }
         } else {
             roomData = {};
             console.log("No data found in localStorage. Initializing empty data.");
         }
+        // Update grid display after loading data
+        updateAllCellDisplays();
     }
 
     function saveData() {
@@ -44,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
             for (const cellId in roomData) {
                 if (Array.isArray(roomData[cellId]) && roomData[cellId].length === 0) {
                     delete roomData[cellId];
-                    console.log(`Removed empty visit array for ${cellId}`);
+                    console.log(`Removed empty day array for ${cellId}`);
                 }
             }
             localStorage.setItem('bluePrinceRoomData', JSON.stringify(roomData));
@@ -55,18 +58,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
-    // --- Grid Generation ---
+    // --- Grid Generation & Display ---
     function createGrid() {
-        gridContainer.innerHTML = ''; // Clear existing grid
+        gridContainer.innerHTML = '';
         gridContainer.style.gridTemplateRows = `repeat(${ROWS}, 60px)`;
         gridContainer.style.gridTemplateColumns = `repeat(${COLS}, 60px)`;
-
         const centerCol = Math.ceil(COLS / 2);
 
         for (let visualRow = 1; visualRow <= ROWS; visualRow++) {
             const rank = ROWS - visualRow + 1;
-
             for (let c = 1; c <= COLS; c++) {
                 const cell = document.createElement('div');
                 cell.classList.add('grid-cell');
@@ -75,99 +75,163 @@ document.addEventListener('DOMContentLoaded', () => {
                 const cellId = `R${rank}C${c}`;
                 cell.id = cellId;
 
-                if (rank === ROWS && c === centerCol) {
+                if (rank === ROWS && c === centerCol) { // Antechamber
                     cell.textContent = 'Antechamber';
                     cell.classList.add('fixed-cell', 'antechamber');
-                } else if (rank === 1 && c === centerCol) {
+                } else if (rank === 1 && c === centerCol) { // Entrance Hall
                     cell.textContent = 'Entrance Hall';
                     cell.classList.add('fixed-cell', 'entrance-hall');
-                } else {
-                    // --- Standard, interactive cell ---
-                    cell.textContent = cellId;
-                    // Add listener for SELECTION via HOVER
+                } else { // Standard cell
+                    // Initial display is set by updateCellDisplay after load/save
+                    cell.textContent = cellId; // Default text
                     cell.addEventListener('mouseover', handleCellMouseOver);
-                    // Add listener for OPENING MODAL via CLICK
                     cell.addEventListener('click', handleCellClick);
                 }
                 gridContainer.appendChild(cell);
             }
         }
-        // Add listener to the whole grid for mouse leaving
         gridContainer.addEventListener('mouseout', handleGridMouseOut);
     }
 
-    // --- UI Updates ---
+    // Updates the text content of a single cell based on latest selected room
+    function updateCellDisplay(cellId) {
+        const cellElement = document.getElementById(cellId);
+        if (!cellElement || cellElement.classList.contains('fixed-cell')) return;
+
+        const days = roomData[cellId] || [];
+        const latestDay = days.length > 0 ? days[days.length - 1] : null;
+        const latestSelection = latestDay?.selected; // Use optional chaining
+
+        if (latestSelection) {
+            cellElement.textContent = latestSelection;
+            cellElement.classList.add('has-selection');
+            cellElement.title = `${cellId} - ${latestSelection}`; // Tooltip
+        } else {
+            cellElement.textContent = cellId;
+            cellElement.classList.remove('has-selection');
+            cellElement.title = cellId; // Reset tooltip
+        }
+    }
+
+    // Updates display for all non-fixed cells
+    function updateAllCellDisplays() {
+        const cells = gridContainer.querySelectorAll('.grid-cell:not(.fixed-cell)');
+        cells.forEach(cell => updateCellDisplay(cell.id));
+    }
+
+
+    // --- UI Updates (Info Panel) ---
     function updateInfoPanel() {
-        if (!selectedCell) {
+        if (!selectedCellElement) {
             selectedCellIdDisplay.textContent = 'No cell selected';
-            visitCountDisplay.textContent = '0';
-            visitList.innerHTML = '';
-            probabilityList.innerHTML = '';
+            dayCountDisplay.textContent = '0';
+            dayList.innerHTML = '';
+            frequencyList.innerHTML = '';
             return;
         }
 
-        const cellId = selectedCell.id;
+        const cellId = selectedCellElement.id;
         selectedCellIdDisplay.textContent = `Selected: ${cellId}`;
 
-        const visits = roomData[cellId] || [];
-        visitCountDisplay.textContent = visits.length;
+        const days = roomData[cellId] || [];
+        dayCountDisplay.textContent = days.length;
 
-        visitList.innerHTML = ''; // Clear previous list
-        visits.forEach((visit, index) => {
+        // Update Day List
+        dayList.innerHTML = '';
+        days.forEach((dayEntry, index) => {
             const li = document.createElement('li');
-            li.classList.add('visit-item'); // Add class for styling
+            li.classList.add('day-list-item');
 
-            // Display visit info
-            const visitText = document.createElement('span');
-            const offeredText = Array.isArray(visit.offered) ? visit.offered.join(', ') || 'None' : 'Invalid data';
-            visitText.textContent = `Visit ${index + 1}: ${offeredText}`;
-            li.appendChild(visitText);
+            // --- Day Header (Number + Delete Button) ---
+            const header = document.createElement('h5');
+            header.textContent = `Day ${dayEntry.day || (index + 1)}`; // Use stored day number or index+1
 
-            // --- Add Delete Button ---
             const deleteButton = document.createElement('button');
-            deleteButton.textContent = '❌'; // Or 'Delete', 'X', etc.
-            deleteButton.classList.add('delete-visit-button');
-            deleteButton.title = `Delete Visit ${index + 1}`;
-            deleteButton.dataset.cellId = cellId; // Store cell ID
-            deleteButton.dataset.visitIndex = index; // Store index of this visit
-            deleteButton.addEventListener('click', handleDeleteVisit);
-            li.appendChild(deleteButton);
-            // --- End Delete Button ---
+            deleteButton.textContent = '❌';
+            deleteButton.classList.add('delete-day-button');
+            deleteButton.title = `Delete Day ${dayEntry.day || (index + 1)}`;
+            deleteButton.dataset.cellId = cellId;
+            deleteButton.dataset.dayIndex = index;
+            deleteButton.addEventListener('click', handleDeleteDay);
+            header.appendChild(deleteButton);
+            li.appendChild(header);
 
-            visitList.appendChild(li);
+            // --- Offered Rooms ---
+            const offersDiv = document.createElement('div');
+            offersDiv.classList.add('day-offers');
+            const offeredText = Array.isArray(dayEntry.offered) ? dayEntry.offered.filter(r => r).join(', ') : 'N/A';
+            offersDiv.textContent = `Offered: ${offeredText || 'None'}`;
+            li.appendChild(offersDiv);
+
+            // --- Selection Controls ---
+            const selectionDiv = document.createElement('div');
+            selectionDiv.classList.add('day-selection-controls');
+            selectionDiv.dataset.cellId = cellId; // Add data for event delegation if needed
+            selectionDiv.dataset.dayIndex = index;
+
+            // Add "None" option first
+            const noneLabel = document.createElement('label');
+            const noneRadio = document.createElement('input');
+            noneRadio.type = 'radio';
+            noneRadio.name = `day-${cellId}-${index}-selection`;
+            noneRadio.value = ''; // Represent "None" with empty string
+            noneRadio.checked = !dayEntry.selected;
+            noneRadio.addEventListener('change', handleChangeSelection);
+            noneLabel.appendChild(noneRadio);
+            noneLabel.appendChild(document.createTextNode(' None'));
+            selectionDiv.appendChild(noneLabel);
+
+            // Add options for each offered room
+            if (Array.isArray(dayEntry.offered)) {
+                dayEntry.offered.forEach(room => {
+                    if (room) { // Only add valid room names
+                        const label = document.createElement('label');
+                        const radio = document.createElement('input');
+                        radio.type = 'radio';
+                        radio.name = `day-${cellId}-${index}-selection`; // Unique name per day
+                        radio.value = room;
+                        radio.checked = dayEntry.selected === room;
+                        radio.addEventListener('change', handleChangeSelection); // Add listener
+                        label.appendChild(radio);
+                        label.appendChild(document.createTextNode(` ${room}`));
+                        selectionDiv.appendChild(label);
+                    }
+                });
+            }
+            li.appendChild(selectionDiv);
+
+            dayList.appendChild(li);
         });
 
-        updateProbabilityList(cellId);
+        // Update Frequency List
+        updateFrequencyList(cellId);
     }
 
-    function updateProbabilityList(cellId) {
-        probabilityList.innerHTML = '';
-        const visits = roomData[cellId] || [];
-
-        if (visits.length === 0) {
-            probabilityList.innerHTML = '<li>No data logged for this cell.</li>';
+    function updateFrequencyList(cellId) {
+        frequencyList.innerHTML = '';
+        const days = roomData[cellId] || [];
+        if (days.length === 0) {
+            frequencyList.innerHTML = '<li>No data logged.</li>';
             return;
         }
 
         const roomCounts = {};
         let totalOffers = 0;
 
-        visits.forEach(visit => {
-            if (Array.isArray(visit.offered)) {
-                visit.offered.forEach(room => {
+        days.forEach(dayEntry => {
+            if (Array.isArray(dayEntry.offered)) {
+                dayEntry.offered.forEach(room => {
                     const trimmedRoom = room ? room.trim() : '';
                     if (trimmedRoom !== '') {
                         roomCounts[trimmedRoom] = (roomCounts[trimmedRoom] || 0) + 1;
                         totalOffers++;
                     }
                 });
-            } else {
-                console.warn(`Invalid 'offered' data found for cell ${cellId}:`, visit);
             }
         });
 
         if (totalOffers === 0) {
-             probabilityList.innerHTML = '<li>No valid room offers logged.</li>';
+             frequencyList.innerHTML = '<li>No valid room offers logged.</li>';
              return;
         }
 
@@ -177,190 +241,245 @@ document.addEventListener('DOMContentLoaded', () => {
             const probability = ((count / totalOffers) * 100).toFixed(1);
             const li = document.createElement('li');
             li.textContent = `${room}: ${count} time(s) (${probability}%)`;
-            probabilityList.appendChild(li);
+            frequencyList.appendChild(li);
         });
     }
 
-
     // --- Event Handlers ---
 
-    // Handles hovering over a cell for SELECTION
     function handleCellMouseOver(event) {
-        if (modal.style.display === 'block') {
-            return;
-        }
+        if (modal.style.display === 'block') return;
         const hoveredElement = event.target.closest('.grid-cell');
-        if (!hoveredElement || hoveredElement.classList.contains('fixed-cell') || hoveredElement === selectedCell) {
+        if (!hoveredElement || hoveredElement.classList.contains('fixed-cell') || hoveredElement === selectedCellElement) {
             return;
         }
-        if (selectedCell) {
-            selectedCell.classList.remove('selected');
+        if (selectedCellElement) {
+            selectedCellElement.classList.remove('selected');
         }
-        selectedCell = hoveredElement;
-        selectedCell.classList.add('selected');
+        selectedCellElement = hoveredElement;
+        selectedCellElement.classList.add('selected');
         updateInfoPanel();
     }
 
-    // Handles mouse leaving the grid container to clear selection
     function handleGridMouseOut(event) {
-        if (modal.style.display === 'block') {
-            return;
-        }
+        if (modal.style.display === 'block') return;
         if (!event.relatedTarget || !gridContainer.contains(event.relatedTarget)) {
-            if (selectedCell) {
-                selectedCell.classList.remove('selected');
-                selectedCell = null;
+            if (selectedCellElement) {
+                selectedCellElement.classList.remove('selected');
+                selectedCellElement = null;
                 updateInfoPanel();
             }
         }
     }
 
-    // Handles clicking a cell to potentially OPEN MODAL
     function handleCellClick(event) {
         const clickedElement = event.target.closest('.grid-cell');
-        // Prevent modal opening if the click was on a delete button inside the info panel
-        if (event.target.classList.contains('delete-visit-button')) {
+        // Prevent modal opening if click was on delete button or selection controls in info panel
+        if (event.target.closest('.delete-day-button') || event.target.closest('.day-selection-controls')) {
             return;
         }
-        if (clickedElement && !clickedElement.classList.contains('fixed-cell') && clickedElement === selectedCell) {
+        // Open modal only if clicking the currently hovered/selected cell
+        if (clickedElement && !clickedElement.classList.contains('fixed-cell') && clickedElement === selectedCellElement) {
             openModal();
         }
     }
 
-    // *** NEW: Handles clicking the delete button for a specific visit ***
-    function handleDeleteVisit(event) {
-        const button = event.target;
-        const cellIdToDelete = button.dataset.cellId;
-        const visitIndexToDelete = parseInt(button.dataset.visitIndex, 10); // Ensure it's a number
+    // Handles changing the selected room for a day via radio buttons in the info panel
+    function handleChangeSelection(event) {
+        const radio = event.target;
+        const controlsDiv = radio.closest('.day-selection-controls');
+        const cellId = controlsDiv.dataset.cellId;
+        const dayIndex = parseInt(controlsDiv.dataset.dayIndex, 10);
+        const newSelection = radio.value || null; // Use null if value is empty string (for "None")
 
-        // Make sure we have valid data
-        if (!cellIdToDelete || isNaN(visitIndexToDelete) || !roomData[cellIdToDelete]) {
-            console.error("Could not delete visit: Invalid data attributes on button.");
+        if (!cellId || isNaN(dayIndex) || !roomData[cellId] || !roomData[cellId][dayIndex]) {
+            console.error("Failed to change selection: Invalid data.");
             return;
         }
 
-        // Confirm deletion
-        if (confirm(`Are you sure you want to delete Visit ${visitIndexToDelete + 1} for cell ${cellIdToDelete}?`)) {
-            // Remove the visit from the array
-            roomData[cellIdToDelete].splice(visitIndexToDelete, 1);
-            console.log(`Deleted visit index ${visitIndexToDelete} for cell ${cellIdToDelete}`);
+        // Update data
+        roomData[cellId][dayIndex].selected = newSelection;
+        console.log(`Changed selection for ${cellId}, Day Index ${dayIndex} to: ${newSelection}`);
 
-            // Save the updated data (saveData now also handles cleanup of empty arrays)
+        saveData();
+        updateCellDisplay(cellId); // Update grid cell text if it was the latest day
+        updateInfoPanel(); // Refresh panel to show change (though radio state already changed)
+    }
+
+    // Handles deleting an entire day's entry
+    function handleDeleteDay(event) {
+        const button = event.target.closest('.delete-day-button');
+        const cellId = button.dataset.cellId;
+        const dayIndex = parseInt(button.dataset.dayIndex, 10);
+
+        if (!cellId || isNaN(dayIndex) || !roomData[cellId] || !roomData[cellId][dayIndex]) {
+            console.error("Could not delete day: Invalid data attributes.");
+            return;
+        }
+
+        const dayNum = roomData[cellId][dayIndex].day || (dayIndex + 1);
+
+        if (confirm(`Are you sure you want to delete Day ${dayNum} for cell ${cellId}? This will remove offers and selection.`)) {
+            roomData[cellId].splice(dayIndex, 1);
+            console.log(`Deleted Day Index ${dayIndex} for cell ${cellId}`);
+
+            // Optional: Renumber subsequent days? For simplicity, let's not renumber now.
+            // The displayed day number will rely on the index if 'day' property isn't reliable.
+
             saveData();
+            updateCellDisplay(cellId); // Update grid cell if latest day was deleted
+            updateInfoPanel(); // Refresh info panel
+        }
+    }
 
-            // Refresh the info panel for the currently selected cell
-            // (which should be the one we just modified)
-            if (selectedCell && selectedCell.id === cellIdToDelete) {
-                updateInfoPanel();
-            } else {
-                // This case shouldn't normally happen if the UI is working correctly,
-                // but as a fallback, maybe re-select and update?
-                console.warn("Deleted visit for a cell that wasn't currently selected.");
-                // Optionally find the cell element, select it, and update
-                const cellElement = document.getElementById(cellIdToDelete);
-                if (cellElement) {
-                    if (selectedCell) selectedCell.classList.remove('selected');
-                    selectedCell = cellElement;
-                    selectedCell.classList.add('selected');
-                    updateInfoPanel();
-                }
-            }
+    // --- Modal Logic ---
+    function openModal() {
+        if (!selectedCellElement) return;
+        const cellId = selectedCellElement.id;
+        const nextDayNum = (roomData[cellId]?.length || 0) + 1; // Suggest next day number
+
+        modalTitle.textContent = `Log Day ${nextDayNum} for Cell: ${cellId}`;
+        roomOfferInputs.forEach(input => input.value = ''); // Clear offer inputs
+        selectionOptionsContainer.innerHTML = '<p><em>Enter offers first to see selection options.</em></p>'; // Clear old radios
+
+        // Add listeners to offer inputs to update radio buttons dynamically
+        roomOfferInputs.forEach(input => {
+            input.removeEventListener('input', updateModalSelectionOptions); // Remove old listener first
+            input.addEventListener('input', updateModalSelectionOptions);
+        });
+
+        modal.style.display = 'block';
+        requestAnimationFrame(() => {
+             roomOfferInputs[0].focus();
+        });
+    }
+
+    // Dynamically updates radio buttons in the modal based on entered offers
+    function updateModalSelectionOptions() {
+        selectionOptionsContainer.innerHTML = ''; // Clear previous options
+
+        const offers = roomOfferInputs.map(input => input.value.trim()).filter(offer => offer !== '');
+        const uniqueOffers = [...new Set(offers)]; // Get unique non-empty offers
+
+        // Add "None" option
+        const noneLabel = document.createElement('label');
+        const noneRadio = document.createElement('input');
+        noneRadio.type = 'radio';
+        noneRadio.name = 'modal-selection';
+        noneRadio.value = ''; // Empty value for "None"
+        noneRadio.checked = true; // Default to None
+        noneLabel.appendChild(noneRadio);
+        noneLabel.appendChild(document.createTextNode(' None (No Selection)'));
+        selectionOptionsContainer.appendChild(noneLabel);
+
+        // Add options for each unique offer
+        uniqueOffers.forEach(offer => {
+            const label = document.createElement('label');
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.name = 'modal-selection';
+            radio.value = offer;
+            label.appendChild(radio);
+            label.appendChild(document.createTextNode(` ${offer}`));
+            selectionOptionsContainer.appendChild(label);
+        });
+
+        if (uniqueOffers.length === 0) {
+             selectionOptionsContainer.insertAdjacentHTML('beforeend', '<p><em>Enter offers to enable selection.</em></p>');
         }
     }
 
 
-    // Opens the data input modal
-    function openModal() {
-        if (!selectedCell) return;
-        modalTitle.textContent = `Log Room Offers for Cell: ${selectedCell.id}`;
-        roomInputs.forEach(input => {
-            input.value = '';
-        });
-        modal.style.display = 'block';
-        requestAnimationFrame(() => {
-             roomInputs[0].focus();
-        });
-    }
-
-    // Closes the data input modal
     function closeModal() {
         modal.style.display = 'none';
+        // Remove dynamic listeners when closing
+        roomOfferInputs.forEach(input => {
+            input.removeEventListener('input', updateModalSelectionOptions);
+        });
     }
 
-    // Handles submission of room data from the modal
-    function handleSubmitRooms() {
-        if (!selectedCell) {
+    // Handles submission of new day data from the modal
+    function handleSubmitDay() {
+        if (!selectedCellElement) {
             console.error("Submit attempted without a selected cell.");
             return;
         }
-        const finalOffered = roomInputs.map(input => input.value.trim());
-        if (finalOffered.every(room => room === '')) {
-             alert("Please enter at least one room name.");
-             roomInputs[0].focus();
+        const cellId = selectedCellElement.id;
+
+        // Get Offers
+        const offered = roomOfferInputs.map(input => input.value.trim());
+        if (offered.every(room => room === '')) {
+             alert("Please enter at least one room offer.");
+             roomOfferInputs[0].focus();
              return;
         }
-        const cellId = selectedCell.id;
+
+        // Get Selection
+        const selectedRadio = selectionOptionsContainer.querySelector('input[name="modal-selection"]:checked');
+        const selected = selectedRadio ? (selectedRadio.value || null) : null; // null if "None" is chosen
+
+        // Determine Day Number
+        const currentDays = roomData[cellId] || [];
+        const nextDayNum = currentDays.length > 0 ? (currentDays[currentDays.length - 1].day || currentDays.length) + 1 : 1;
+
+        // Create new day entry
+        const newDayEntry = {
+            day: nextDayNum,
+            offered: offered,
+            selected: selected
+        };
+
+        // Add to data
         if (!roomData[cellId]) {
             roomData[cellId] = [];
         }
-        roomData[cellId].push({ offered: finalOffered });
+        roomData[cellId].push(newDayEntry);
+        console.log(`Added Day ${nextDayNum} for ${cellId}:`, newDayEntry);
+
         saveData();
-        updateInfoPanel();
+        updateCellDisplay(cellId); // Update the grid cell's text
+        updateInfoPanel(); // Refresh the info panel
         closeModal();
     }
 
     // --- Initialization ---
-    loadData();
-    createGrid();
+    loadData(); // Load data first
+    createGrid(); // Then create grid (display depends on loaded data)
 
-    // --- Modal Event Listeners ---
+    // --- Event Listeners ---
     closeModalButton.addEventListener('click', closeModal);
-    submitRoomsButton.addEventListener('click', handleSubmitRooms);
-    window.addEventListener('click', (event) => {
+    submitDayButton.addEventListener('click', handleSubmitDay); // Renamed
+    window.addEventListener('click', (event) => { // Close modal on outside click
         if (event.target === modal) {
             closeModal();
         }
     });
-    roomInputs.forEach(input => {
-        input.addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') {
+    // Enter key listener (apply only when modal is open?) - simplified for now
+    // This might need refinement if Enter is needed elsewhere
+    document.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter' && modal.style.display === 'block') {
+             // Check if focus is within the modal inputs to prevent accidental submission
+             if (modal.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') {
                  e.preventDefault();
-                 handleSubmitRooms();
-            }
-        });
+                 handleSubmitDay();
+             }
+        }
     });
 
-
-    // --- Control Button Event Listeners ---
-    if (clearVisitsButton) {
-        clearVisitsButton.addEventListener('click', () => {
-            if (modal.style.display === 'block') {
-                closeModal();
-            }
-            if (confirm('Are you sure you want to clear ALL logged visits for ALL cells? This cannot be undone.')) {
+    // Control Button Listener
+    if (clearDataButton) {
+        clearDataButton.addEventListener('click', () => {
+            if (modal.style.display === 'block') closeModal(); // Close modal first
+            if (confirm('Are you sure you want to clear ALL logged data for ALL cells? This cannot be undone.')) {
                 roomData = {};
                 saveData();
-                if (selectedCell) {
-                    selectedCell.classList.remove('selected');
-                    selectedCell = null;
+                if (selectedCellElement) {
+                    selectedCellElement.classList.remove('selected');
+                    selectedCellElement = null;
                 }
-                updateInfoPanel();
-                alert('All visit data cleared.');
-            }
-        });
-    }
-    if (clearProbabilitiesButton) {
-         clearProbabilitiesButton.addEventListener('click', () => {
-            alert('Probabilities are calculated automatically from logged visits. To clear probabilities, please clear the visits using the "Clear All Visits" button.');
-         });
-    }
-    if (recalculateButton) {
-        recalculateButton.addEventListener('click', () => {
-            if (selectedCell) {
-                updateProbabilityList(selectedCell.id);
-                alert(`Probabilities recalculated for ${selectedCell.id}. (Note: This usually happens automatically)`);
-            } else {
-                alert('Select a cell first to recalculate its probabilities.');
+                updateAllCellDisplays(); // Reset all cell text
+                updateInfoPanel(); // Clear info panel
+                alert('All data cleared.');
             }
         });
     }
