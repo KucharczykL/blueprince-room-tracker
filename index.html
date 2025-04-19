@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blue Prince Room Tracker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Blue Prince Room Tracker</h1>
+    <div class="container">
+        <div id="mansion-grid" class="grid-container">
+            </div>
+        <div id="mansion-controls" class="controls-panel">
+            <button id="clear-visits">Clear All Visits</button>
+            <button id="clear-probabilities">Clear All Probabilities</button>
+            <button id="recalculate-probabilities">Recalculate Probabilities</button>
+        </div>
+        <div id="cell-info" class="info-panel">
+            <h2>Cell Information</h2>
+            <p>Click on a grid cell to view its data and add new entries.</p>
+            <h3 id="selected-cell-id"></h3>
+            <h4>Logged Visits (<span id="visit-count">0</span>):</h4>
+            <ul id="visit-list"></ul>
+            <h4>Room Probabilities:</h4>
+            <ul id="probability-list"></ul>
+        </div>
+    </div>
+
+    <div id="input-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h3 id="modal-title">Log Room Offers for Cell: </h3>
+            <label for="room1">Room Offer 1:</label>
+            <input type="text" id="room1" name="room1"><br>
+            <label for="room2">Room Offer 2:</label>
+            <input type="text" id="room2" name="room2"><br>
+            <label for="room3">Room Offer 3:</label>
+            <input type="text" id="room3" name="room3"><br>
+            <button id="submit-rooms">Log This Visit</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
