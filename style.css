@@ -11,7 +11,7 @@ h1, h2, h3, h4 {
 
 .container {
     display: flex;
-    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    /* flex-wrap: wrap; */
     gap: 20px;
 }
 
@@ -76,8 +76,9 @@ h1, h2, h3, h4 {
 }
 
 .controls-panel {
-    width: 100%; /* Take full width below grid/info */
+    /* width: 100%; */
     margin-top: 10px;
+    width: fit-content;
 }
 
 .info-panel {
@@ -255,3 +256,60 @@ h1, h2, h3, h4 {
 
 /* Remove styles for the old delete-visit-button if they exist */
 /* Remove styles for add-data-button */
+/* Add these styles */
+.current-day-controls {
+    margin-bottom: 20px;
+    text-align: center;
+    background-color: #e9ecef;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.current-day-controls label {
+    font-weight: bold;
+    margin: 0 10px;
+}
+
+.current-day-controls input[type="number"] {
+    width: 60px;
+    padding: 5px;
+    text-align: center;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 1.1em;
+    margin: 0 5px;
+}
+
+.current-day-controls button {
+    padding: 5px 10px;
+    font-size: 1.1em;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    background-color: #fff;
+    border-radius: 3px;
+}
+.current-day-controls button:hover {
+    background-color: #f0f0f0;
+}
+
+/* Style to highlight the current day in the list */
+.day-list-item.current-day-item {
+    border-left: 4px solid #007bff; /* Blue left border */
+    background-color: #e7f3ff; /* Light blue background */
+}
+.day-list-item.current-day-item h5 {
+    color: #0056b3; /* Darker blue text for header */
+}
+
+/* Minor adjustments to existing styles if needed */
+.info-panel p { /* Instruction text */
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 15px;
+}
+
+/* Ensure modal title is visible */
+#modal-title {
+    margin-top: 0;
+    margin-bottom: 15px;
+}
