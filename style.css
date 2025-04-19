@@ -112,6 +112,8 @@ h1, h2, h3, h4 {
 /* We still need a way to highlight the *selected cell* in the main grid */
 .grid-container .grid-cell.selected {
     outline-offset: -3px;
+    /* You might want to add the outline style back here if needed */
+    /* outline: 3px solid #0056b3; */
 }
 
 /* Fixed cells in main grid */
@@ -160,8 +162,8 @@ h1, h2, h3, h4 {
     list-style-type: none;
     padding-left: 0;
     font-size: 0.9em;
-    max-height: 250px;
-    overflow-y: auto;
+    /* max-height: 250px; */
+    /* overflow-y: auto; */
     margin-bottom: 15px;
 }
 
@@ -351,14 +353,16 @@ h1, h2, h3, h4 {
 /* Selection state specific to modal buttons */
 .room-selector-button.selected {
     outline-offset: -3px;
-    background-color: #e0e0e0;
-
+    background-color: #e0e0e0; /* Use background color for selection in modal grid */
+    /* You might want to add the outline back here if needed */
+    /* outline: 3px solid #0056b3; */
+    /* border-color: #0056b3 !important; */ /* Optional: Match border to selection */
 }
 
 
 /* Modal Chosen Offers Display */
 .chosen-offers-container {
-    min-height: 64px;
+    min-height: 64px; /* Adjust based on new cell height if needed */
     padding: 5px;
     border: 1px dashed #ddd;
     background-color: #fafafa;
@@ -377,25 +381,29 @@ h1, h2, h3, h4 {
     margin: 2px;
 }
 
-/* Modal Final Selection Radio Buttons */
-#selection-options label {
-    display: block;
-    margin-bottom: 8px;
-    cursor: pointer;
-}
-#selection-options label[style*="opacity: 0.5"] {
-    cursor: not-allowed;
-    color: #888;
-}
-#selection-options input[type="radio"] {
-    margin-right: 5px;
-    vertical-align: middle;
-}
-#selection-options p {
-    color: #888;
+/* Style for the "None" button */
+.none-selection-button {
+    border-style: dashed !important; /* Dashed border for None */
+    border-color: #aaa !important;
+    border-width: 1px !important; /* Thinner border */
     font-style: italic;
-    font-size: 0.9em;
+    color: #666 !important;
 }
+/* Style for the finally selected tag/button */
+.chosen-offers-container .final-selection {
+    outline: 3px solid #28a745; /* Green outline for final selection */
+    outline-offset: -2px;
+    border-color: #28a745 !important; /* Match border to outline */
+}
+
+
+/* Modal Final Selection Radio Buttons (REMOVED) */
+/*
+#selection-options label { ... }
+#selection-options label[style*="opacity: 0.5"] { ... }
+#selection-options input[type="radio"] { ... }
+#selection-options p { ... }
+*/
 
 /* Modal Submit Button */
 #submit-day {
