@@ -70,6 +70,12 @@ h1, h2, h3, h4 {
     flex-shrink: 0;
 }
 
+.outer-room {
+    border: 2px solid #555;
+    padding: 5px;
+    background-color: #ddd;
+}
+
 /* --- Unified Grid Cell / Room Tag Style --- */
 .grid-cell {
     background-color: #fff; /* Default white background */

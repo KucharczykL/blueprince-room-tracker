@@ -95,6 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { name: "Foundation", color: "blue", exit_no: 3, rarity: "rare", extra_data: []},
         { name: "Freezer", color: "blue", exit_no: 1, rarity: "rare", extra_data: []},
         { name: "Classroom", color: "blue", exit_no: 2, rarity: "rare", extra_data: []},
+        { name: "Servant's Quarters", color: "purple", exit_no: 1, rarity: "rare", extra_data: []},
     ];
 
     // --- DOM Element References ---
@@ -119,13 +120,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentCalendarDateDisplay = document.getElementById('current-calendar-date');
     const addDayButton = document.getElementById('add-day-button');
     const sortMethodSelector = document.getElementById('sort-method-selector');
+    const outerRoomCell = document.getElementById('outer-room-cell'); // Added reference
 
 
     // --- Constants and State ---
     const ROWS = 9;
     const COLS = 5;
     const START_DATE = new Date(1993, 10, 7); // November is month 10 (0-indexed)
-    let selectedCellElement = null;
+    const OUTER_ROOM_ID = "OuterRoom"; // Define a constant for the ID
+    let selectedCellElement = null; // Can be a grid cell or the outer room cell
     // roomData structure: { cellId: { days: DayEntry[], letter: string | null }, ... }
     // DayEntry structure: { day: number, offered: string[], selected: string | null } (letter removed)
     let roomData = {};
@@ -409,8 +412,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateCellDisplay(cellId) {
-        const cellElement = document.getElementById(cellId);
-        if (!cellElement || cellElement.classList.contains('fixed-cell')) {
+        const isOuterRoom = cellId === OUTER_ROOM_ID;
+        const cellElement = document.getElementById(isOuterRoom ? 'outer-room-cell' : cellId); // Get correct element
+
+        // Ignore fixed cells (only relevant for main grid)
+        if (!cellElement || (!isOuterRoom && cellElement.classList.contains('fixed-cell'))) {
             return;
         }
 
@@ -421,14 +427,14 @@ document.addEventListener('DOMContentLoaded', () => {
         cellElement.style.backgroundColor = '';
         cellElement.style.color = '';
 
-        const cellData = roomData[cellId]; // Now an object { days: [], letter: null } or undefined
+        const cellData = roomData[cellId]; // Object { days: [], letter: null } or undefined
         const days = cellData?.days || [];
         const persistentLetter = cellData?.letter || null; // Get the persistent letter
 
         let selectionToShow = null;
         let roomColorName = null;
 
-        // Find entry for the current day to display room name/color
+        // Find entry for the current day
         const entryForCurrentDay = days.find(dayEntry => dayEntry && typeof dayEntry.day === 'number' && dayEntry.day === currentDay);
 
         if (entryForCurrentDay && entryForCurrentDay.selected) {
@@ -437,48 +443,43 @@ document.addEventListener('DOMContentLoaded', () => {
             roomColorName = predefinedRoom?.color;
         }
 
-        // Determine if the cell should show content (either a selection for today or a persistent letter)
+        // Determine if the cell should show content
         if (selectionToShow || persistentLetter) {
             cellElement.classList.add('has-selection');
 
-            // Display room name for the current day if selected
             if (selectionToShow) {
                 const roomNameSpan = document.createElement('span');
                 roomNameSpan.classList.add('cell-room-name');
                 roomNameSpan.textContent = selectionToShow;
                 cellElement.appendChild(roomNameSpan);
 
-                // Apply border color based on selected room
                 if (roomColorName) {
                     cellElement.style.borderColor = COLOR_NAME_TO_VALUE[roomColorName] || '#aaa';
                     cellElement.style.borderWidth = '2px';
                 }
             }
 
-            // Always display the persistent letter if it exists
             if (persistentLetter) {
                 const letterSpan = document.createElement('span');
                 letterSpan.classList.add('cell-letter');
                 letterSpan.textContent = persistentLetter;
-                // Add margin if room name is also shown
                 if (selectionToShow) {
                     letterSpan.style.marginLeft = '5px';
                 }
                 cellElement.appendChild(letterSpan);
             }
         } else {
-            // No selection for today AND no persistent letter, show cell ID
+            // Show default text (Cell ID or "Outer Room")
             const idSpan = document.createElement('span');
             idSpan.classList.add('cell-id-display');
-            idSpan.textContent = cellId;
+            idSpan.textContent = isOuterRoom ? "Outer Room" : cellId;
             cellElement.appendChild(idSpan);
         }
 
         // Update Tooltip
         const absoluteLatestDay = days.length > 0 ? [...days].sort((a,b) => b.day - a.day)[0] : null;
         const tooltipSelection = absoluteLatestDay?.selected;
-        let tooltipText = cellId;
-        // Include persistent letter in tooltip
+        let tooltipText = isOuterRoom ? "Outer Room" : cellId;
         if (persistentLetter) {
              tooltipText += ` [${persistentLetter}]`;
         }
@@ -492,8 +493,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateAllCellDisplays() {
         console.log("Updating all displays for day:", currentDay);
+        // Update main grid cells
         const cells = gridContainer.querySelectorAll('.grid-cell:not(.fixed-cell)');
         cells.forEach(cell => updateCellDisplay(cell.id));
+        // Update outer room cell
+        if (outerRoomCell) { // Check if outer room element exists
+             updateCellDisplay(OUTER_ROOM_ID);
+        }
     }
 
 
@@ -514,13 +520,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const cellId = selectedCellElement.id;
+        const cellId = selectedCellElement.id === 'outer-room-cell' ? OUTER_ROOM_ID : selectedCellElement.id; // Get logical ID
+        const isOuterRoom = cellId === OUTER_ROOM_ID;
+        const displayId = isOuterRoom ? "Outer Room" : cellId; // ID for display
+
         const cellData = roomData[cellId]; // Object { days: [], letter: null } or undefined
         const days = cellData?.days ? [...cellData.days].sort((a, b) => a.day - b.day) : [];
-        const persistentLetter = cellData?.letter || null; // Get persistent letter
+        const persistentLetter = cellData?.letter || null;
 
         // Display Cell ID and Persistent Letter
-        selectedCellIdDisplay.textContent = `Selected: ${cellId}${persistentLetter ? ` [${persistentLetter}]` : ''}`;
+        selectedCellIdDisplay.textContent = `Selected: ${displayId}${persistentLetter ? ` [${persistentLetter}]` : ''}`;
 
         dayCountDisplay.textContent = days.length;
 
@@ -530,71 +539,67 @@ document.addEventListener('DOMContentLoaded', () => {
             const existingDayIndex = days.findIndex(d => d.day === currentDay);
             if (existingDayIndex !== -1) {
                 addDayButton.textContent = `Edit Day ${currentDay}`;
-                addDayButton.title = `Edit data for Day ${currentDay} in ${cellId}`;
+                addDayButton.title = `Edit data for Day ${currentDay} in ${displayId}`;
             } else {
                 addDayButton.textContent = `Add Day ${currentDay}`;
-                addDayButton.title = `Add data for Day ${currentDay} to ${cellId}`;
+                addDayButton.title = `Add data for Day ${currentDay} to ${displayId}`;
             }
         }
 
         // Populate Day List
         dayList.innerHTML = '';
-        days.forEach((dayEntry, index) => { // dayEntry no longer has .letter
-            const li = document.createElement('li');
-            li.classList.add('day-list-item');
-            if (dayEntry.day === currentDay) {
-                li.classList.add('current-day-item');
-            }
+        days.forEach((dayEntry, index) => {
+             const li = document.createElement('li');
+             li.classList.add('day-list-item');
+             if (dayEntry.day === currentDay) { li.classList.add('current-day-item'); }
 
-            const header = document.createElement('h5');
-            header.textContent = `Day ${dayEntry.day}`;
-            const deleteButton = document.createElement('button');
-            deleteButton.textContent = '❌';
-            deleteButton.classList.add('delete-day-button');
-            deleteButton.title = `Delete Day ${dayEntry.day}`;
-            deleteButton.dataset.cellId = cellId;
-            deleteButton.dataset.dayNumber = dayEntry.day;
-            deleteButton.addEventListener('click', handleDeleteDay);
-            header.appendChild(deleteButton);
-            li.appendChild(header);
+             const header = document.createElement('h5');
+             header.textContent = `Day ${dayEntry.day}`;
+             const deleteButton = document.createElement('button');
+             deleteButton.textContent = '❌';
+             deleteButton.classList.add('delete-day-button');
+             deleteButton.title = `Delete Day ${dayEntry.day}`;
+             deleteButton.dataset.cellId = cellId; // Use logical cellId
+             deleteButton.dataset.dayNumber = dayEntry.day;
+             deleteButton.addEventListener('click', handleDeleteDay);
+             header.appendChild(deleteButton);
+             li.appendChild(header);
 
-            const offersDiv = document.createElement('div');
-            offersDiv.classList.add('day-offers');
-            offersDiv.textContent = 'Offered: ';
+             const offersDiv = document.createElement('div');
+             offersDiv.classList.add('day-offers');
+             offersDiv.textContent = 'Offered: ';
 
-            let hasOffers = false;
-            if (Array.isArray(dayEntry.offered)) {
-                dayEntry.offered.forEach(offerName => {
-                    const roomName = typeof offerName === 'string' ? offerName : null;
-                    if (roomName) {
-                        const predefinedRoom = PREDEFINED_ROOMS.find(r => r.name === roomName);
-                        const tag = createRoomTagElement(roomName, predefinedRoom?.color);
-                        if (dayEntry.selected === roomName) { tag.classList.add('final-selection-info'); }
-                        offersDiv.appendChild(tag);
-                        hasOffers = true;
-                    }
-                });
-            }
-            if (!hasOffers) { offersDiv.appendChild(document.createTextNode('None')); }
+             let hasOffers = false;
+             if (Array.isArray(dayEntry.offered)) {
+                 dayEntry.offered.forEach(offerName => {
+                     const roomName = typeof offerName === 'string' ? offerName : null;
+                     if (roomName) {
+                         const predefinedRoom = PREDEFINED_ROOMS.find(r => r.name === roomName);
+                         const tag = createRoomTagElement(roomName, predefinedRoom?.color);
+                         if (dayEntry.selected === roomName) { tag.classList.add('final-selection-info'); }
+                         offersDiv.appendChild(tag);
+                         hasOffers = true;
+                     }
+                 });
+             }
+             if (!hasOffers) { offersDiv.appendChild(document.createTextNode('None')); }
 
-            // Display selected room for the day
-            offersDiv.appendChild(document.createTextNode(` (Selected: ${dayEntry.selected || 'None'})`));
-
-            li.appendChild(offersDiv);
-            dayList.appendChild(li);
+             offersDiv.appendChild(document.createTextNode(` (Selected: ${dayEntry.selected || 'None'})`));
+             li.appendChild(offersDiv);
+             dayList.appendChild(li);
         });
 
-        updateFrequencyList(cellId);
+        updateFrequencyList(cellId); // Pass the logical ID
     }
 
-    function updateFrequencyList(cellId) {
+    function updateFrequencyList(cellId) { // cellId is now OUTER_ROOM_ID or R C
         if (!frequencyList) return;
 
         frequencyList.innerHTML = '';
         frequencyList.classList.add('frequency-grid');
 
-        const cellData = roomData[cellId]; // Object { days: [], letter: null } or undefined
-        const days = cellData?.days || []; // Get days array
+        const cellData = roomData[cellId];
+        const days = cellData?.days || [];
 
         if (days.length === 0) {
             frequencyList.innerHTML = '<li>No data logged.</li>';
@@ -605,7 +610,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const roomCounts = {};
         let totalOffers = 0;
 
-        // Calculate frequencies based on the 'days' array
         days.forEach(dayEntry => {
             if (Array.isArray(dayEntry.offered)) {
                 dayEntry.offered.forEach(offerName => {
@@ -653,30 +657,63 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleCellClick(event) {
         const clickedElement = event.target.closest('.grid-cell');
 
-        if (!clickedElement || clickedElement.classList.contains('fixed-cell')) {
+        // Ignore clicks on non-cells, fixed cells, or delete buttons
+        if (!clickedElement || clickedElement.classList.contains('fixed-cell') || event.target.closest('.delete-day-button')) {
             return;
         }
-        if (event.target.closest('.delete-day-button')) {
-             return;
+
+        // Ignore clicks on the outer room cell (handled separately)
+        if (clickedElement === outerRoomCell) {
+            return;
         }
+
+        // If clicking the *already selected* main grid cell, do nothing
         if (clickedElement === selectedCellElement) {
             return;
         }
+
+        // Deselect previous element (could be main grid or outer room)
         if (selectedCellElement) {
             selectedCellElement.classList.remove('selected');
         }
+
+        // Select the new main grid cell
         selectedCellElement = clickedElement;
         selectedCellElement.classList.add('selected');
-        updateInfoPanel();
+
+        updateInfoPanel(); // Update panel for the newly selected cell
+    }
+
+    function handleOuterRoomClick(event) {
+         // Ignore clicks on delete buttons within the info panel if event bubbles up
+        if (event.target.closest('.delete-day-button')) {
+             return;
+        }
+
+        // If already selected, do nothing
+        if (selectedCellElement === outerRoomCell) {
+            return;
+        }
+
+        // Deselect previous element (must be a main grid cell if outer wasn't selected)
+        if (selectedCellElement && selectedCellElement !== outerRoomCell) {
+            selectedCellElement.classList.remove('selected');
+        }
+
+        // Select the outer room
+        selectedCellElement = outerRoomCell;
+        selectedCellElement.classList.add('selected');
+
+        updateInfoPanel(); // Update panel for the outer room
     }
 
     function handleDeleteDay(event) {
         const button = event.target.closest('.delete-day-button');
-        const cellId = button.dataset.cellId;
+        const cellId = button.dataset.cellId; // This will be "OuterRoom" or "RxCx"
         const dayNumber = parseInt(button.dataset.dayNumber, 10);
+
         if (!cellId || isNaN(dayNumber)) return;
 
-        // Access the days array within the cellData object
         const cellData = roomData[cellId];
         if (!cellData || !Array.isArray(cellData.days)) return;
 
@@ -687,7 +724,7 @@ document.addEventListener('DOMContentLoaded', () => {
             cellData.days.splice(dayIndex, 1); // Remove from the days array
             console.log(`Deleted Day ${dayNumber} for cell ${cellId}`);
             saveData();
-            updateCellDisplay(cellId); // Update grid display
+            updateCellDisplay(cellId); // Update the correct cell display
             updateInfoPanel(); // Update info panel
         }
     }
@@ -698,18 +735,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!roomSelectorGrid) return;
         roomSelectorGrid.innerHTML = '';
 
+        let roomsToFilter = [...PREDEFINED_ROOMS];
+        const isOuterRoomSelected = selectedCellElement === outerRoomCell;
+
+        // --- Filter for Outer Room ---
+        if (isOuterRoomSelected) {
+            roomsToFilter = roomsToFilter.filter(room =>
+                room.extra_data?.some(ed => ed.outer === true)
+            );
+            console.log("Filtering for Outer Room compatible rooms");
+        }
+        // --- End Filter ---
+
+
         // --- Sorting Logic ---
-        let roomsToDisplay = [...PREDEFINED_ROOMS]; // Create a copy
+        let roomsToDisplay = roomsToFilter; // Start with potentially filtered list
 
         if (currentSortMethod === 'alphabetical') {
             roomsToDisplay.sort((a, b) => a.name.localeCompare(b.name));
             console.log("Sorting rooms alphabetically");
         } else {
-            // 'predefined' or default
-            console.log("Using predefined room order");
+            // 'predefined' or default: Maintain filtered order (or original if not outer room)
+            console.log("Using predefined room order (within filter)");
         }
         // --- End Sorting Logic ---
 
+        // Iterate over the final list
         roomsToDisplay.forEach(room => {
             const button = document.createElement('button');
             button.classList.add('room-selector-button', 'grid-cell');
@@ -820,35 +871,37 @@ document.addEventListener('DOMContentLoaded', () => {
     function openModal() {
         if (!selectedCellElement || !modal || !modalTitle || !editDayIndexInput || !submitDayButton || !dayLetterInput) return;
 
-        const cellId = selectedCellElement.id;
+        const cellId = selectedCellElement.id === 'outer-room-cell' ? OUTER_ROOM_ID : selectedCellElement.id; // Get logical ID
+        const isOuterRoom = cellId === OUTER_ROOM_ID;
+        const displayId = isOuterRoom ? "Outer Room" : cellId;
+
         currentModalOffers = [];
         currentModalFinalSelection = null;
 
-        const cellData = roomData[cellId]; // Object { days: [], letter: null } or undefined
+        const cellData = roomData[cellId];
         const days = cellData?.days || [];
-        const persistentLetter = cellData?.letter || null; // Get persistent letter
+        const persistentLetter = cellData?.letter || null;
 
-        // Load persistent letter into input
         dayLetterInput.value = persistentLetter || '';
 
         const existingDayIndex = days.findIndex(d => d.day === currentDay);
-        const existingDayData = existingDayIndex !== -1 ? days[existingDayIndex] : null; // Day entry (no letter)
+        const existingDayData = existingDayIndex !== -1 ? days[existingDayIndex] : null;
 
         editDayIndexInput.value = existingDayIndex;
 
-        populateRoomSelectorGrid(); // Populate based on sort preference
+        // Populate grid (will be filtered correctly based on selectedCellElement)
+        populateRoomSelectorGrid();
+
+        // Update Title
+        modalTitle.textContent = `${existingDayData ? 'Edit' : 'Log'} Day ${currentDay} for Cell: ${displayId}${persistentLetter ? ` [${persistentLetter}]` : ''}`;
 
         if (existingDayData) {
-            // EDIT MODE (for day-specific data: offers, selection)
-            modalTitle.textContent = `Edit Day ${currentDay} for Cell: ${cellId}${persistentLetter ? ` [${persistentLetter}]` : ''}`;
+            // EDIT MODE
             submitDayButton.textContent = 'Update Day';
-
             currentModalOffers = (existingDayData.offered || [])
                 .map(offerName => PREDEFINED_ROOMS.find(r => r.name === offerName))
                 .filter(Boolean);
-
             currentModalFinalSelection = existingDayData.selected;
-            // Letter is already loaded from persistent storage above
 
             // Update highlights on room selector grid
             if (roomSelectorGrid) {
@@ -860,17 +913,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             }
-            updateChosenOffersDisplay();
 
         } else {
-            // ADD MODE (for day-specific data)
-            modalTitle.textContent = `Log Day ${currentDay} for Cell: ${cellId}${persistentLetter ? ` [${persistentLetter}]` : ''}`;
+            // ADD MODE
             submitDayButton.textContent = 'Log This Day';
             currentModalFinalSelection = null;
-            // Letter is already loaded from persistent storage above
-            updateChosenOffersDisplay();
         }
 
+        updateChosenOffersDisplay(); // Update the chosen/final selection area
         modal.style.display = 'block';
     }
 
@@ -885,7 +935,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleSubmitDay() {
         if (!selectedCellElement || !dayLetterInput) return;
 
-        const cellId = selectedCellElement.id;
+        const cellId = selectedCellElement.id === 'outer-room-cell' ? OUTER_ROOM_ID : selectedCellElement.id; // Get logical ID
         const editIndex = parseInt(editDayIndexInput.value, 10);
 
         const offeredObjects = currentModalOffers;
@@ -904,12 +954,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Validation for day-specific data (offers/selection)
         const hasOffers = offeredObjects.length > 0;
         const hasSelection = selected !== null; // True even if "None" was explicitly selected
-
-        // Allow saving even if only the letter is changed
-        // if (!hasOffers && !hasSelection && persistentLetterToSave === (roomData[cellId]?.letter || null)) {
-        //     alert(`No changes detected. Please provide offers/selection or modify the letter.`);
-        //     return;
-        // }
 
         if (selected !== null && !offeredObjects.some(o => o.name === selected)) {
              alert("The final selected room is not one of the chosen offers. Please re-select the final choice or add the room to the offers.");
@@ -932,7 +976,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         // --- Prepare and Save Day-Specific Data (if any) ---
-        // Only save day entry if there were offers or a selection made
         if (hasOffers || hasSelection) {
             const dayEntryData = { // Letter is NOT included here anymore
                 day: currentDay,
@@ -955,8 +998,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // ADD NEW day entry (check for duplicates first)
                 const existingDayEntry = daysArray.find(d => d.day === currentDay);
                 if (existingDayEntry) {
-                    // Overwrite if adding again for the same day? Or prevent?
-                    // Let's overwrite for simplicity, like an implicit edit.
+                    // Overwrite if adding again for the same day
                     const idxToOverwrite = daysArray.findIndex(d => d.day === currentDay);
                     daysArray[idxToOverwrite] = dayEntryData;
                      console.log(`Overwrote Day ${currentDay} data for ${cellId}`);
@@ -971,8 +1013,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         // --- End Save Day-Specific Data ---
 
-        saveData(); // Save the updated roomData (with new structure and letter)
-        updateCellDisplay(cellId); // Update grid
+        saveData(); // Save the updated roomData
+        updateCellDisplay(cellId); // Update the correct cell (grid or outer)
         updateInfoPanel(); // Update side panel
         closeModal();
     }
@@ -1006,8 +1048,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Initialization ---
     loadData(); // Loads data, including migration and sort preference
     createGrid();
-    updateAllCellDisplays();
-    updateInfoPanel();
+    updateAllCellDisplays(); // Now updates outer room too
+    updateInfoPanel(); // Initialize panel state
 
     // --- Event Listeners ---
     if (prevDayButton) prevDayButton.addEventListener('click', () => changeCurrentDay(-1));
@@ -1035,27 +1077,33 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    // Add Listener for Outer Room
+    if (outerRoomCell) {
+        outerRoomCell.addEventListener('click', handleOuterRoomClick);
+    }
     window.addEventListener('click', (event) => { if (event.target === modal) closeModal(); });
 
 
-    // Clear Data Button Logic (Adjusted slightly)
+    // Clear Data Button Logic
     if (clearDataButton) {
         clearDataButton.addEventListener('click', () => {
              if (modal && modal.style.display === 'block') closeModal();
-            if (confirm('Are you sure you want to clear ALL logged data for ALL cells (including letters)? This cannot be undone.')) {
+            if (confirm('Are you sure you want to clear ALL logged data for ALL cells (including letters and Outer Room)? This cannot be undone.')) {
                 roomData = {}; // Clear the main data object
                 currentDay = 1;
                 try { localStorage.removeItem('bluePrinceRoomData'); } catch (e) { console.error("Error clearing room data:", e); }
                 try { localStorage.setItem('bluePrinceCurrentDay', currentDay.toString()); } catch (e) { console.error("Error resetting current day:", e); }
                 // Keep sort preference
 
+                // Deselect any selected element (grid or outer room)
                 if (selectedCellElement) {
                     selectedCellElement.classList.remove('selected');
                     selectedCellElement = null;
                 }
+
                 updateCurrentDayDisplay();
-                updateAllCellDisplays();
-                updateInfoPanel();
+                updateAllCellDisplays(); // Clears grid and outer room display
+                updateInfoPanel(); // Resets info panel
                 alert('All data cleared.');
             }
         });
