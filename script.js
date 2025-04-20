@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
         "orange": "#fd7e14",
         "green": "#28a745",
         "gray": "#808080",
-        // Add more if needed, ensure names match ROOM_COLORS
     };
 
     // --- Predefined Room Data ---
@@ -74,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { name: "Greenhouse", color: "green", exit_no: 1, rarity: "common", extra_data: [] },
         { name: "Commissary", color: "yellow", exit_no: 1, rarity: "common", extra_data: [] },
         { name: "Kitchen", color: "yellow", exit_no: 1, rarity: "common", extra_data: [] },
-        { name: "Locksmith", color: "yellow", exit_no: 1, rarity: "common", extra_data: [] }, // Note: Name kept as provided
+        { name: "Locksmith", color: "yellow", exit_no: 1, rarity: "common", extra_data: [] },
         { name: "Showroom", color: "yellow", exit_no: 1, rarity: "common", extra_data: [] },
         { name: "Laundry Room", color: "yellow", exit_no: 1, rarity: "common", extra_data: [] },
         { name: "Bookshop", color: "yellow", exit_no: 2, rarity: "rare", extra_data: [{cost: "gem"}] },
@@ -122,6 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextDayButton = document.getElementById('next-day');
     const currentCalendarDateDisplay = document.getElementById('current-calendar-date');
     const addDayButton = document.getElementById('add-day-button');
+    const sortMethodSelector = document.getElementById('sort-method-selector'); // Added reference for sort selector
 
 
     // --- Constants and State ---
@@ -133,6 +133,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentModalOffers = []; // Array of room *objects* currently selected in modal
     let currentModalFinalSelection = null; // Stores name string or null
     const START_DATE = new Date(1993, 10, 7); // November is month 10 (0-indexed)
+    let currentSortMethod = 'predefined'; // Default sort method ('predefined' or 'alphabetical')
+
 
     // --- Date Calculation Helper ---
     /**
@@ -213,6 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Data Persistence ---
     function loadData() {
+        // Load Room Data (with migration)
         const storedRoomData = localStorage.getItem('bluePrinceRoomData');
         if (storedRoomData) {
             try {
@@ -224,34 +227,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 for (const cellId in parsedData) {
                     if (Array.isArray(parsedData[cellId])) {
                         parsedData[cellId].forEach(dayEntry => {
-                            // Check if 'offered' exists and has at least one element
                             if (Array.isArray(dayEntry.offered) && dayEntry.offered.length > 0) {
-                                // Check if the first element is an object (indicative of old format)
                                 if (typeof dayEntry.offered[0] === 'object' && dayEntry.offered[0] !== null && dayEntry.offered[0].hasOwnProperty('name')) {
-                                    // Convert array of objects to array of names
-                                    dayEntry.offered = dayEntry.offered.map(offerObj => offerObj?.name).filter(Boolean); // Map to names and filter out nulls/undefined
-                                    dataWasMigrated = true; // Mark that migration occurred
+                                    dayEntry.offered = dayEntry.offered.map(offerObj => offerObj?.name).filter(Boolean);
+                                    dataWasMigrated = true;
                                 }
                             }
                         });
                     }
                 }
-
                 if (dataWasMigrated) {
                     console.log("Old room data format detected and migrated to new format (string names).");
-                    // Optional: Immediately save the migrated data back to localStorage
-                    // This prevents running the migration every time, but is optional.
-                    // try {
-                    //     localStorage.setItem('bluePrinceRoomData', JSON.stringify(parsedData));
-                    //     console.log("Migrated data saved back to localStorage.");
-                    // } catch (e) {
-                    //     console.error("Error saving migrated data:", e);
-                    // }
+                    // Optional: Save migrated data back immediately
+                    // try { localStorage.setItem('bluePrinceRoomData', JSON.stringify(parsedData)); console.log("Migrated data saved back."); } catch (e) { console.error("Error saving migrated data:", e); }
                 }
                 // --- End Migration Step ---
-
-                roomData = parsedData; // Assign the potentially migrated data
-
+                roomData = parsedData;
             } catch (e) {
                 console.error("Error parsing or migrating room data:", e);
                 roomData = {};
@@ -261,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("No room data found.");
         }
 
-        // Load current day (unchanged)
+        // Load Current Day
         const storedDay = localStorage.getItem('bluePrinceCurrentDay');
         if (storedDay) {
             const parsedDay = parseInt(storedDay, 10);
@@ -270,6 +261,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log("Current day loaded:", currentDay);
             }
         }
+
+        // --- Load Sort Preference ---
+        const storedSortMethod = localStorage.getItem('bluePrinceSortMethod');
+        if (storedSortMethod && (storedSortMethod === 'predefined' || storedSortMethod === 'alphabetical')) {
+            currentSortMethod = storedSortMethod;
+            if (sortMethodSelector) {
+                sortMethodSelector.value = currentSortMethod; // Update dropdown on load
+            }
+            console.log("Sort preference loaded:", currentSortMethod);
+        }
+        // --- End Load Sort Preference ---
+
         // Update displays AFTER loading data
         updateCurrentDayDisplay();
     }
@@ -287,6 +290,16 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             console.error("Error saving room data:", e);
             alert("Could not save room data. LocalStorage might be full or unavailable.");
+        }
+    }
+
+    // --- Helper to save sort preference ---
+    function saveSortPreference() {
+        try {
+            localStorage.setItem('bluePrinceSortMethod', currentSortMethod);
+            console.log("Sort preference saved:", currentSortMethod);
+        } catch (e) {
+            console.error("Error saving sort preference:", e);
         }
     }
 
@@ -357,15 +370,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (selectionToShow || letterToShow) { // Show content if either room or letter exists
+        if (selectionToShow || letterToShow) {
             cellElement.classList.add('has-selection');
-
             if (selectionToShow) {
                 const roomNameSpan = document.createElement('span');
                 roomNameSpan.classList.add('cell-room-name');
                 roomNameSpan.textContent = selectionToShow;
                 cellElement.appendChild(roomNameSpan);
-
                 if (roomColorName) {
                     cellElement.style.borderColor = COLOR_NAME_TO_VALUE[roomColorName] || '#aaa';
                     cellElement.style.borderWidth = '2px';
@@ -374,24 +385,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     cellElement.style.borderWidth = '';
                 }
             }
-
             if (letterToShow) {
                 const letterSpan = document.createElement('span');
                 letterSpan.classList.add('cell-letter');
                 letterSpan.textContent = letterToShow;
                 cellElement.appendChild(letterSpan);
             }
-
         } else {
-            // No room selected and no letter, show cell ID
             const idSpan = document.createElement('span');
             idSpan.classList.add('cell-id-display');
             idSpan.textContent = cellId;
             cellElement.appendChild(idSpan);
         }
 
-        // Tooltip logic
-        const absoluteLatestDay = days.length > 0 ? days.sort((a,b) => b.day - a.day)[0] : null; // Find latest day entry
+        const absoluteLatestDay = days.length > 0 ? [...days].sort((a,b) => b.day - a.day)[0] : null; // Use copy for sort
         const tooltipSelection = absoluteLatestDay?.selected;
         const tooltipLetter = absoluteLatestDay?.letter;
         let tooltipText = cellId;
@@ -431,8 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const cellId = selectedCellElement.id;
         selectedCellIdDisplay.textContent = `Selected: ${cellId}`;
 
-        const days = roomData[cellId] || [];
-        days.sort((a, b) => a.day - b.day);
+        const days = roomData[cellId] ? [...roomData[cellId]].sort((a, b) => a.day - b.day) : []; // Use copy for sort
 
         dayCountDisplay.textContent = days.length;
 
@@ -473,9 +479,8 @@ document.addEventListener('DOMContentLoaded', () => {
             offersDiv.textContent = 'Offered: ';
 
             let hasOffers = false;
-            // Now expects dayEntry.offered to be an array of strings
             if (Array.isArray(dayEntry.offered)) {
-                dayEntry.offered.forEach(offerName => { // Iterate over names (strings)
+                dayEntry.offered.forEach(offerName => {
                     const roomName = typeof offerName === 'string' ? offerName : null;
                     const predefinedRoom = PREDEFINED_ROOMS.find(r => r.name === roomName);
                     const roomColorName = predefinedRoom?.color;
@@ -493,11 +498,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!hasOffers) {
                 offersDiv.appendChild(document.createTextNode('None'));
             }
-            if (dayEntry.selected) {
-                 offersDiv.appendChild(document.createTextNode(` (Selected: ${dayEntry.selected})`));
-            } else {
-                 offersDiv.appendChild(document.createTextNode(` (Selected: None)`));
-            }
+            offersDiv.appendChild(document.createTextNode(` (Selected: ${dayEntry.selected || 'None'})`));
             if (dayEntry.letter) {
                 const letterInfoSpan = document.createElement('span');
                 letterInfoSpan.textContent = ` [${dayEntry.letter}]`;
@@ -529,9 +530,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let totalOffers = 0;
 
         days.forEach(dayEntry => {
-            // Now expects dayEntry.offered to be an array of strings
             if (Array.isArray(dayEntry.offered)) {
-                dayEntry.offered.forEach(offerName => { // Iterate over names (strings)
+                dayEntry.offered.forEach(offerName => {
                     const roomName = typeof offerName === 'string' ? offerName : null;
                     if (roomName) {
                         const trimmedRoom = roomName.trim();
@@ -618,7 +618,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!roomSelectorGrid) return;
         roomSelectorGrid.innerHTML = '';
 
-        PREDEFINED_ROOMS.forEach(room => {
+        // --- Sorting Logic ---
+        let roomsToDisplay = [...PREDEFINED_ROOMS]; // Create a copy
+
+        if (currentSortMethod === 'alphabetical') {
+            roomsToDisplay.sort((a, b) => a.name.localeCompare(b.name));
+            console.log("Sorting rooms alphabetically");
+        } else {
+            // 'predefined' or default
+            console.log("Using predefined room order");
+        }
+        // --- End Sorting Logic ---
+
+        roomsToDisplay.forEach(room => {
             const button = document.createElement('button');
             button.classList.add('room-selector-button', 'grid-cell');
             button.textContent = room.name;
@@ -630,7 +642,6 @@ document.addEventListener('DOMContentLoaded', () => {
             button.style.color = '';
             button.dataset.roomName = room.name;
 
-            // Check against currentModalOffers (which holds full objects)
             if (currentModalOffers.some(offer => offer.name === room.name)) {
                 button.classList.add('selected');
             }
@@ -647,22 +658,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!roomInfo) return;
 
-        // currentModalOffers holds full room objects
         const isSelected = currentModalOffers.some(offer => offer.name === roomName);
 
         if (isSelected) {
             currentModalOffers = currentModalOffers.filter(offer => offer.name !== roomName);
             button.classList.remove('selected');
         } else {
-            // No MAX_OFFERS check anymore
             currentModalOffers.push(roomInfo);
             button.classList.add('selected');
         }
 
         updateChosenOffersDisplay();
-        // Automatically clear final selection if it's no longer offered
         if (currentModalFinalSelection && !currentModalOffers.some(o => o.name === currentModalFinalSelection)) {
-           handleFinalSelectionClick(null, null); // Simulate clicking "None"
+           handleFinalSelectionClick(null, null);
         }
     }
 
@@ -685,7 +693,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentModalOffers.length === 0) {
             chosenOffersDisplay.insertAdjacentHTML('beforeend', '<em>Select offers from grid above.</em>');
         } else {
-            // currentModalOffers holds full room objects
             currentModalOffers.forEach(offer => {
                 const tag = createRoomTagElement(offer.name, offer.color);
                 tag.dataset.roomName = offer.name;
@@ -699,7 +706,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Enable submit button - validation happens on submit
         submitDayButton.disabled = false;
         submitDayButton.title = 'Submit day data';
     }
@@ -720,7 +726,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         currentModalFinalSelection = roomName === "" ? null : roomName;
-
         console.log("Final selection set to:", currentModalFinalSelection);
 
         chosenOffersDisplay.querySelectorAll('.grid-cell').forEach(el => {
@@ -736,7 +741,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!selectedCellElement || !modal || !modalTitle || !editDayIndexInput || !submitDayButton || !dayLetterInput) return;
 
         const cellId = selectedCellElement.id;
-        currentModalOffers = []; // Reset offers (array of objects)
+        currentModalOffers = [];
         currentModalFinalSelection = null;
         dayLetterInput.value = '';
 
@@ -746,22 +751,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         editDayIndexInput.value = existingDayIndex;
 
-        populateRoomSelectorGrid(); // Create the grid first
+        // Populate grid *using current sort method*
+        populateRoomSelectorGrid();
 
         if (existingDayData) {
             // EDIT MODE
             modalTitle.textContent = `Edit Day ${currentDay} for Cell: ${cellId}`;
             submitDayButton.textContent = 'Update Day';
 
-            // Set initial offers: Map saved names (strings) back to full room objects
             currentModalOffers = (existingDayData.offered || [])
                 .map(offerName => PREDEFINED_ROOMS.find(r => r.name === offerName))
-                .filter(Boolean); // Filter out nulls if a room name is invalid
+                .filter(Boolean);
 
             currentModalFinalSelection = existingDayData.selected;
             dayLetterInput.value = existingDayData.letter || '';
 
-            // Update button highlights in the 10x10 grid based on currentModalOffers
+            // Update highlights on the potentially sorted grid
             if (roomSelectorGrid) {
                 roomSelectorGrid.querySelectorAll('.room-selector-button').forEach(button => {
                     if (currentModalOffers.some(offer => offer.name === button.dataset.roomName)) {
@@ -799,9 +804,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const cellId = selectedCellElement.id;
         const editIndex = parseInt(editDayIndexInput.value, 10);
 
-        // Get data from modal state
-        const offeredObjects = currentModalOffers; // Array of room objects
-        const selected = currentModalFinalSelection; // String name or null
+        const offeredObjects = currentModalOffers;
+        const selected = currentModalFinalSelection;
 
         let letter = dayLetterInput.value.trim().toUpperCase();
         if (letter.length > 1 || (letter.length === 1 && !/^[A-Z]$/.test(letter))) {
@@ -813,7 +817,6 @@ document.addEventListener('DOMContentLoaded', () => {
             letter = null;
         }
 
-        // Validation: Check if anything is being saved
         const hasOffers = offeredObjects.length > 0;
         const hasSelection = selected !== null;
         const hasLetter = letter !== null;
@@ -823,7 +826,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Validation: Check if selected room is in the offers list
         if (selected !== null && !offeredObjects.some(o => o.name === selected)) {
              alert("The final selected room is not one of the chosen offers. Please re-select the final choice or add the room to the offers.");
              return;
@@ -833,10 +835,9 @@ document.addEventListener('DOMContentLoaded', () => {
             roomData[cellId] = [];
         }
 
-        // Create the data object for the day - STORE ONLY NAMES for offered
         const dayEntryData = {
             day: currentDay,
-            offered: offeredObjects.map(o => o.name), // Convert objects to names for storage
+            offered: offeredObjects.map(o => o.name),
             selected: selected,
             letter: letter
         };
@@ -859,7 +860,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 closeModal(); return;
             }
             roomData[cellId].push(dayEntryData);
-            roomData[cellId].sort((a, b) => a.day - b.day);
+            roomData[cellId].sort((a, b) => a.day - b.day); // Keep day entries sorted
             console.log(`Added Day ${currentDay} for ${cellId}:`, dayEntryData);
         }
 
@@ -871,16 +872,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // --- Helper Functions ---
-    /**
-     * Creates a styled div element representing a room tag/cell.
-     * Uses the .grid-cell base style. Applies border color.
-     * @param {string} roomName - The name of the room.
-     * @param {string} [roomColorName] - Optional color name ('red', 'blue', etc.).
-     * @returns {HTMLDivElement} - The styled div element.
-     */
     function createRoomTagElement(roomName, roomColorName) {
         const div = document.createElement('div');
-        div.classList.add('grid-cell');
+        div.classList.add('grid-cell'); // Use common styling
         div.textContent = roomName;
         div.title = roomName;
 
@@ -894,8 +888,8 @@ document.addEventListener('DOMContentLoaded', () => {
             div.style.borderWidth = '';
             div.style.borderStyle = '';
         }
-        div.style.backgroundColor = '';
-        div.style.color = '';
+        div.style.backgroundColor = ''; // Ensure default background
+        div.style.color = ''; // Ensure default text color
 
         return div;
     }
@@ -903,7 +897,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // --- Initialization ---
-    loadData(); // Includes migration step now
+    loadData(); // Loads room data, current day, and sort preference
     createGrid();
     updateAllCellDisplays();
     updateInfoPanel();
@@ -925,6 +919,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- Listener for Sort Selector ---
+    if (sortMethodSelector) {
+        sortMethodSelector.addEventListener('change', (event) => {
+            currentSortMethod = event.target.value;
+            console.log("Sort method changed to:", currentSortMethod);
+            saveSortPreference(); // Save the new preference
+            // Re-populate the grid if the modal is currently open
+            if (modal && modal.style.display === 'block') {
+                populateRoomSelectorGrid();
+            }
+        });
+    }
+    // --- End Listener ---
+
     window.addEventListener('click', (event) => {
         if (event.target === modal) closeModal();
     });
@@ -935,8 +943,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (confirm('Are you sure you want to clear ALL logged data for ALL cells? This cannot be undone.')) {
                 roomData = {};
                 currentDay = 1;
-                try { localStorage.removeItem('bluePrinceRoomData'); } catch (e) { console.error("Error clearing room data:", e); } // Use removeItem
+                try { localStorage.removeItem('bluePrinceRoomData'); } catch (e) { console.error("Error clearing room data:", e); }
                 try { localStorage.setItem('bluePrinceCurrentDay', currentDay.toString()); } catch (e) { console.error("Error resetting current day:", e); }
+                // No need to clear sort preference here, user might want to keep it
                 if (selectedCellElement) {
                     selectedCellElement.classList.remove('selected');
                     selectedCellElement = null;
