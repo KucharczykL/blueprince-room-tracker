@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // List of allowed color names
+    // Constants (ROOM_COLORS, COLOR_NAME_TO_VALUE, PREDEFINED_ROOMS) remain the same
     const ROOM_COLORS = ["red", "blue", "purple", "yellow", "orange", "green", "gray"];
-    // Map color names to actual CSS values (hex or standard names)
     const COLOR_NAME_TO_VALUE = {
         "red": "#dc3545",
         "blue": "#007bff",
@@ -11,8 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
         "green": "#28a745",
         "gray": "#808080",
     };
-
-    // --- Predefined Room Data ---
     const PREDEFINED_ROOMS = [
         { name: "Spare Room", color: "blue", exit_no: 1, rarity: "common", extra_data: [{ number: 3 }] },
         { name: "Parlor", color: "blue", exit_no: 1, rarity: "common", extra_data: [{ number: 5 }] },
@@ -121,22 +118,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextDayButton = document.getElementById('next-day');
     const currentCalendarDateDisplay = document.getElementById('current-calendar-date');
     const addDayButton = document.getElementById('add-day-button');
-    const sortMethodSelector = document.getElementById('sort-method-selector'); // Added reference for sort selector
+    const sortMethodSelector = document.getElementById('sort-method-selector');
 
 
     // --- Constants and State ---
     const ROWS = 9;
     const COLS = 5;
+    const START_DATE = new Date(1993, 10, 7); // November is month 10 (0-indexed)
     let selectedCellElement = null;
+    // roomData structure: { cellId: { days: DayEntry[], letter: string | null }, ... }
+    // DayEntry structure: { day: number, offered: string[], selected: string | null } (letter removed)
     let roomData = {};
     let currentDay = 1;
-    let currentModalOffers = []; // Array of room *objects* currently selected in modal
-    let currentModalFinalSelection = null; // Stores name string or null
-    const START_DATE = new Date(1993, 10, 7); // November is month 10 (0-indexed)
-    let currentSortMethod = 'predefined'; // Default sort method ('predefined' or 'alphabetical')
+    let currentModalOffers = [];
+    let currentModalFinalSelection = null;
+    let currentSortMethod = 'predefined';
 
 
-    // --- Date Calculation Helper ---
+    // --- Date Calculation & Display ---
     /**
      * Calculates the calendar date for a given day number.
      * @param {number} dayNumber - The day number (1-based).
@@ -155,7 +154,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Update Calendar Date Display ---
     function updateCalendarDateDisplay() {
         if (currentCalendarDateDisplay) {
             currentCalendarDateDisplay.textContent = getCalendarDateForDay(currentDay);
@@ -215,34 +213,100 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Data Persistence ---
     function loadData() {
-        // Load Room Data (with migration)
+        // Load Room Data (with migration for structure and letter)
         const storedRoomData = localStorage.getItem('bluePrinceRoomData');
+        let dataWasMigrated = false; // Flag for any migration type
+        let letterMigrationLog = []; // Log messages for letter migration
+
         if (storedRoomData) {
             try {
                 let parsedData = JSON.parse(storedRoomData);
                 console.log("Raw room data loaded.");
 
-                // --- Migration Step ---
-                let dataWasMigrated = false;
+                // --- Migration Step (Offer Format & Letter Structure) ---
+                const migratedData = {}; // Build the new data structure here
+
                 for (const cellId in parsedData) {
-                    if (Array.isArray(parsedData[cellId])) {
-                        parsedData[cellId].forEach(dayEntry => {
+                    let cellData = parsedData[cellId];
+                    let newCellStructure = { days: [], letter: null };
+                    let firstLetterFound = null;
+
+                    // Check if data is in the old format (cellId maps directly to array)
+                    if (Array.isArray(cellData)) {
+                        dataWasMigrated = true; // Mark structure migration
+                        newCellStructure.days = cellData; // Assign the array to the 'days' property
+
+                        // Now iterate through the days in the old structure to find the first letter
+                        for (const dayEntry of newCellStructure.days) {
+                            // Migrate offer format (object to string) if needed (from previous migration)
                             if (Array.isArray(dayEntry.offered) && dayEntry.offered.length > 0) {
                                 if (typeof dayEntry.offered[0] === 'object' && dayEntry.offered[0] !== null && dayEntry.offered[0].hasOwnProperty('name')) {
                                     dayEntry.offered = dayEntry.offered.map(offerObj => offerObj?.name).filter(Boolean);
-                                    dataWasMigrated = true;
                                 }
                             }
-                        });
+
+                            // Find and migrate the first letter
+                            if (dayEntry.hasOwnProperty('letter') && dayEntry.letter && firstLetterFound === null) {
+                                firstLetterFound = dayEntry.letter.trim().toUpperCase();
+                                if (firstLetterFound.length > 1 || (firstLetterFound.length === 1 && !/^[A-Z]$/.test(firstLetterFound))) {
+                                    letterMigrationLog.push(`Cell ${cellId}: Found invalid letter '${dayEntry.letter}' on day ${dayEntry.day}. Ignoring.`);
+                                    firstLetterFound = null; // Ignore invalid letter
+                                } else {
+                                    newCellStructure.letter = firstLetterFound;
+                                    letterMigrationLog.push(`Cell ${cellId}: Migrated letter '${firstLetterFound}' from day ${dayEntry.day}.`);
+                                }
+                            }
+                            // Remove letter from individual day entry in the new structure
+                            delete dayEntry.letter;
+                        }
                     }
-                }
-                if (dataWasMigrated) {
-                    console.log("Old room data format detected and migrated to new format (string names).");
-                    // Optional: Save migrated data back immediately
-                    // try { localStorage.setItem('bluePrinceRoomData', JSON.stringify(parsedData)); console.log("Migrated data saved back."); } catch (e) { console.error("Error saving migrated data:", e); }
+                    // Check if data is already in new object format but might need offer migration
+                    else if (typeof cellData === 'object' && cellData !== null && cellData.hasOwnProperty('days')) {
+                        newCellStructure = cellData; // Start with existing structure
+                        // Migrate offer format if needed within the existing structure
+                        if (Array.isArray(newCellStructure.days)) {
+                            newCellStructure.days.forEach(dayEntry => {
+                                if (Array.isArray(dayEntry.offered) && dayEntry.offered.length > 0) {
+                                    if (typeof dayEntry.offered[0] === 'object' && dayEntry.offered[0] !== null && dayEntry.offered[0].hasOwnProperty('name')) {
+                                        dayEntry.offered = dayEntry.offered.map(offerObj => offerObj?.name).filter(Boolean);
+                                        dataWasMigrated = true; // Mark offer format migration
+                                    }
+                                }
+                                // Ensure letter property doesn't exist on day entries (cleanup)
+                                if (dayEntry.hasOwnProperty('letter')) {
+                                     delete dayEntry.letter;
+                                     dataWasMigrated = true; // Mark cleanup migration
+                                }
+                            });
+                        }
+                         // Ensure letter property exists at the cell level
+                        if (!newCellStructure.hasOwnProperty('letter')) {
+                            newCellStructure.letter = null;
+                            dataWasMigrated = true; // Mark structure fix migration
+                        }
+
+                    } else {
+                        // Skip invalid data for this cellId
+                        console.warn(`Skipping invalid data format for cell ${cellId} during load.`);
+                        continue;
+                    }
+
+                    migratedData[cellId] = newCellStructure; // Assign the processed structure
                 }
                 // --- End Migration Step ---
-                roomData = parsedData;
+
+                if (dataWasMigrated) {
+                    console.log("Data migration performed (structure/offer format/letter).");
+                    if (letterMigrationLog.length > 0) {
+                        console.log("Letter Migration Details:");
+                        letterMigrationLog.forEach(log => console.log(`  - ${log}`));
+                    }
+                    // Optional: Save migrated data back immediately
+                    // try { localStorage.setItem('bluePrinceRoomData', JSON.stringify(migratedData)); console.log("Migrated data saved back."); } catch (e) { console.error("Error saving migrated data:", e); }
+                }
+
+                roomData = migratedData; // Assign the fully migrated data
+
             } catch (e) {
                 console.error("Error parsing or migrating room data:", e);
                 roomData = {};
@@ -262,7 +326,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // --- Load Sort Preference ---
+
+        // Load Sort Preference
         const storedSortMethod = localStorage.getItem('bluePrinceSortMethod');
         if (storedSortMethod && (storedSortMethod === 'predefined' || storedSortMethod === 'alphabetical')) {
             currentSortMethod = storedSortMethod;
@@ -271,7 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             console.log("Sort preference loaded:", currentSortMethod);
         }
-        // --- End Load Sort Preference ---
+
 
         // Update displays AFTER loading data
         updateCurrentDayDisplay();
@@ -279,9 +344,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function saveData() {
         try {
-            // Clean up empty arrays before saving
+            // Clean up empty cell data before saving
             for (const cellId in roomData) {
-                if (Array.isArray(roomData[cellId]) && roomData[cellId].length === 0) {
+                const cell = roomData[cellId];
+                // Delete cell entry if it has no days and no letter
+                if ((!cell.days || cell.days.length === 0) && !cell.letter) {
                     delete roomData[cellId];
                 }
             }
@@ -347,63 +414,78 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        cellElement.innerHTML = '';
+        cellElement.innerHTML = ''; // Clear previous content
         cellElement.classList.remove('has-selection');
         cellElement.style.borderColor = '';
         cellElement.style.borderWidth = '';
         cellElement.style.backgroundColor = '';
         cellElement.style.color = '';
 
-        const days = roomData[cellId] || [];
+        const cellData = roomData[cellId]; // Now an object { days: [], letter: null } or undefined
+        const days = cellData?.days || [];
+        const persistentLetter = cellData?.letter || null; // Get the persistent letter
+
         let selectionToShow = null;
         let roomColorName = null;
-        let letterToShow = null;
 
+        // Find entry for the current day to display room name/color
         const entryForCurrentDay = days.find(dayEntry => dayEntry && typeof dayEntry.day === 'number' && dayEntry.day === currentDay);
 
-        if (entryForCurrentDay) {
+        if (entryForCurrentDay && entryForCurrentDay.selected) {
             selectionToShow = entryForCurrentDay.selected;
-            letterToShow = entryForCurrentDay.letter || null;
-            if (selectionToShow) {
-                const predefinedRoom = PREDEFINED_ROOMS.find(r => r.name === selectionToShow);
-                roomColorName = predefinedRoom?.color;
-            }
+            const predefinedRoom = PREDEFINED_ROOMS.find(r => r.name === selectionToShow);
+            roomColorName = predefinedRoom?.color;
         }
 
-        if (selectionToShow || letterToShow) {
+        // Determine if the cell should show content (either a selection for today or a persistent letter)
+        if (selectionToShow || persistentLetter) {
             cellElement.classList.add('has-selection');
+
+            // Display room name for the current day if selected
             if (selectionToShow) {
                 const roomNameSpan = document.createElement('span');
                 roomNameSpan.classList.add('cell-room-name');
                 roomNameSpan.textContent = selectionToShow;
                 cellElement.appendChild(roomNameSpan);
+
+                // Apply border color based on selected room
                 if (roomColorName) {
                     cellElement.style.borderColor = COLOR_NAME_TO_VALUE[roomColorName] || '#aaa';
                     cellElement.style.borderWidth = '2px';
-                } else {
-                    cellElement.style.borderColor = '';
-                    cellElement.style.borderWidth = '';
                 }
             }
-            if (letterToShow) {
+
+            // Always display the persistent letter if it exists
+            if (persistentLetter) {
                 const letterSpan = document.createElement('span');
                 letterSpan.classList.add('cell-letter');
-                letterSpan.textContent = letterToShow;
+                letterSpan.textContent = persistentLetter;
+                // Add margin if room name is also shown
+                if (selectionToShow) {
+                    letterSpan.style.marginLeft = '5px';
+                }
                 cellElement.appendChild(letterSpan);
             }
         } else {
+            // No selection for today AND no persistent letter, show cell ID
             const idSpan = document.createElement('span');
             idSpan.classList.add('cell-id-display');
             idSpan.textContent = cellId;
             cellElement.appendChild(idSpan);
         }
 
-        const absoluteLatestDay = days.length > 0 ? [...days].sort((a,b) => b.day - a.day)[0] : null; // Use copy for sort
+        // Update Tooltip
+        const absoluteLatestDay = days.length > 0 ? [...days].sort((a,b) => b.day - a.day)[0] : null;
         const tooltipSelection = absoluteLatestDay?.selected;
-        const tooltipLetter = absoluteLatestDay?.letter;
         let tooltipText = cellId;
-        if (tooltipSelection || tooltipLetter) {
-            tooltipText += ` (Latest: ${tooltipSelection || 'N/A'}${tooltipLetter ? ` [${tooltipLetter}]` : ''})`;
+        // Include persistent letter in tooltip
+        if (persistentLetter) {
+             tooltipText += ` [${persistentLetter}]`;
+        }
+        if (tooltipSelection) {
+            tooltipText += ` (Latest Room: ${tooltipSelection})`;
+        } else if (days.length > 0) {
+             tooltipText += ` (Latest Room: None)`;
         }
         cellElement.title = tooltipText;
     }
@@ -417,10 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- UI Updates (Info Panel) ---
     function updateInfoPanel() {
-        if (!selectedCellIdDisplay || !dayCountDisplay || !dayList || !frequencyList) {
-            console.error("Info panel elements not found!");
-            return;
-        }
+        if (!selectedCellIdDisplay || !dayCountDisplay || !dayList || !frequencyList) return;
 
         if (!selectedCellElement) {
             selectedCellIdDisplay.textContent = 'No cell selected';
@@ -436,12 +515,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const cellId = selectedCellElement.id;
-        selectedCellIdDisplay.textContent = `Selected: ${cellId}`;
+        const cellData = roomData[cellId]; // Object { days: [], letter: null } or undefined
+        const days = cellData?.days ? [...cellData.days].sort((a, b) => a.day - b.day) : [];
+        const persistentLetter = cellData?.letter || null; // Get persistent letter
 
-        const days = roomData[cellId] ? [...roomData[cellId]].sort((a, b) => a.day - b.day) : []; // Use copy for sort
+        // Display Cell ID and Persistent Letter
+        selectedCellIdDisplay.textContent = `Selected: ${cellId}${persistentLetter ? ` [${persistentLetter}]` : ''}`;
 
         dayCountDisplay.textContent = days.length;
 
+        // Update Add/Edit button text
         if (addDayButton) {
             addDayButton.disabled = false;
             const existingDayIndex = days.findIndex(d => d.day === currentDay);
@@ -454,8 +537,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        // Populate Day List
         dayList.innerHTML = '';
-        days.forEach((dayEntry, index) => {
+        days.forEach((dayEntry, index) => { // dayEntry no longer has .letter
             const li = document.createElement('li');
             li.classList.add('day-list-item');
             if (dayEntry.day === currentDay) {
@@ -482,31 +566,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (Array.isArray(dayEntry.offered)) {
                 dayEntry.offered.forEach(offerName => {
                     const roomName = typeof offerName === 'string' ? offerName : null;
-                    const predefinedRoom = PREDEFINED_ROOMS.find(r => r.name === roomName);
-                    const roomColorName = predefinedRoom?.color;
-
-                    if (roomName && roomName.trim() !== '') {
-                        const tag = createRoomTagElement(roomName, roomColorName);
-                        if (dayEntry.selected === roomName) {
-                            tag.classList.add('final-selection-info');
-                        }
+                    if (roomName) {
+                        const predefinedRoom = PREDEFINED_ROOMS.find(r => r.name === roomName);
+                        const tag = createRoomTagElement(roomName, predefinedRoom?.color);
+                        if (dayEntry.selected === roomName) { tag.classList.add('final-selection-info'); }
                         offersDiv.appendChild(tag);
                         hasOffers = true;
                     }
                 });
             }
-            if (!hasOffers) {
-                offersDiv.appendChild(document.createTextNode('None'));
-            }
-            offersDiv.appendChild(document.createTextNode(` (Selected: ${dayEntry.selected || 'None'})`));
-            if (dayEntry.letter) {
-                const letterInfoSpan = document.createElement('span');
-                letterInfoSpan.textContent = ` [${dayEntry.letter}]`;
-                letterInfoSpan.style.fontWeight = 'bold';
-                offersDiv.appendChild(letterInfoSpan);
-            }
-            li.appendChild(offersDiv);
+            if (!hasOffers) { offersDiv.appendChild(document.createTextNode('None')); }
 
+            // Display selected room for the day
+            offersDiv.appendChild(document.createTextNode(` (Selected: ${dayEntry.selected || 'None'})`));
+
+            li.appendChild(offersDiv);
             dayList.appendChild(li);
         });
 
@@ -519,7 +593,9 @@ document.addEventListener('DOMContentLoaded', () => {
         frequencyList.innerHTML = '';
         frequencyList.classList.add('frequency-grid');
 
-        const days = roomData[cellId] || [];
+        const cellData = roomData[cellId]; // Object { days: [], letter: null } or undefined
+        const days = cellData?.days || []; // Get days array
+
         if (days.length === 0) {
             frequencyList.innerHTML = '<li>No data logged.</li>';
             frequencyList.classList.remove('frequency-grid');
@@ -529,6 +605,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const roomCounts = {};
         let totalOffers = 0;
 
+        // Calculate frequencies based on the 'days' array
         days.forEach(dayEntry => {
             if (Array.isArray(dayEntry.offered)) {
                 dayEntry.offered.forEach(offerName => {
@@ -572,6 +649,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- Event Handlers ---
     function handleCellClick(event) {
         const clickedElement = event.target.closest('.grid-cell');
 
@@ -596,19 +674,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const button = event.target.closest('.delete-day-button');
         const cellId = button.dataset.cellId;
         const dayNumber = parseInt(button.dataset.dayNumber, 10);
-        if (!cellId || isNaN(dayNumber)) {
-            console.error("Could not delete day: Invalid data attributes."); return;
-        }
-        const dayIndex = roomData[cellId]?.findIndex(d => d.day === dayNumber);
-        if (dayIndex === undefined || dayIndex === -1) {
-            console.error(`Could not delete day: Day ${dayNumber} not found for ${cellId}.`); return;
-        }
+        if (!cellId || isNaN(dayNumber)) return;
+
+        // Access the days array within the cellData object
+        const cellData = roomData[cellId];
+        if (!cellData || !Array.isArray(cellData.days)) return;
+
+        const dayIndex = cellData.days.findIndex(d => d.day === dayNumber);
+        if (dayIndex === -1) return;
+
         if (confirm(`Are you sure you want to delete Day ${dayNumber} for cell ${cellId}?`)) {
-            roomData[cellId].splice(dayIndex, 1);
+            cellData.days.splice(dayIndex, 1); // Remove from the days array
             console.log(`Deleted Day ${dayNumber} for cell ${cellId}`);
             saveData();
-            updateCellDisplay(cellId);
-            updateInfoPanel();
+            updateCellDisplay(cellId); // Update grid display
+            updateInfoPanel(); // Update info panel
         }
     }
 
@@ -743,20 +823,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const cellId = selectedCellElement.id;
         currentModalOffers = [];
         currentModalFinalSelection = null;
-        dayLetterInput.value = '';
 
-        const days = roomData[cellId] || [];
+        const cellData = roomData[cellId]; // Object { days: [], letter: null } or undefined
+        const days = cellData?.days || [];
+        const persistentLetter = cellData?.letter || null; // Get persistent letter
+
+        // Load persistent letter into input
+        dayLetterInput.value = persistentLetter || '';
+
         const existingDayIndex = days.findIndex(d => d.day === currentDay);
-        const existingDayData = existingDayIndex !== -1 ? days[existingDayIndex] : null;
+        const existingDayData = existingDayIndex !== -1 ? days[existingDayIndex] : null; // Day entry (no letter)
 
         editDayIndexInput.value = existingDayIndex;
 
-        // Populate grid *using current sort method*
-        populateRoomSelectorGrid();
+        populateRoomSelectorGrid(); // Populate based on sort preference
 
         if (existingDayData) {
-            // EDIT MODE
-            modalTitle.textContent = `Edit Day ${currentDay} for Cell: ${cellId}`;
+            // EDIT MODE (for day-specific data: offers, selection)
+            modalTitle.textContent = `Edit Day ${currentDay} for Cell: ${cellId}${persistentLetter ? ` [${persistentLetter}]` : ''}`;
             submitDayButton.textContent = 'Update Day';
 
             currentModalOffers = (existingDayData.offered || [])
@@ -764,9 +848,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 .filter(Boolean);
 
             currentModalFinalSelection = existingDayData.selected;
-            dayLetterInput.value = existingDayData.letter || '';
+            // Letter is already loaded from persistent storage above
 
-            // Update highlights on the potentially sorted grid
+            // Update highlights on room selector grid
             if (roomSelectorGrid) {
                 roomSelectorGrid.querySelectorAll('.room-selector-button').forEach(button => {
                     if (currentModalOffers.some(offer => offer.name === button.dataset.roomName)) {
@@ -779,11 +863,11 @@ document.addEventListener('DOMContentLoaded', () => {
             updateChosenOffersDisplay();
 
         } else {
-            // ADD MODE
-            modalTitle.textContent = `Log Day ${currentDay} for Cell: ${cellId}`;
+            // ADD MODE (for day-specific data)
+            modalTitle.textContent = `Log Day ${currentDay} for Cell: ${cellId}${persistentLetter ? ` [${persistentLetter}]` : ''}`;
             submitDayButton.textContent = 'Log This Day';
             currentModalFinalSelection = null;
-            dayLetterInput.value = '';
+            // Letter is already loaded from persistent storage above
             updateChosenOffersDisplay();
         }
 
@@ -805,68 +889,91 @@ document.addEventListener('DOMContentLoaded', () => {
         const editIndex = parseInt(editDayIndexInput.value, 10);
 
         const offeredObjects = currentModalOffers;
-        const selected = currentModalFinalSelection;
+        const selected = currentModalFinalSelection; // Room name or null
 
-        let letter = dayLetterInput.value.trim().toUpperCase();
-        if (letter.length > 1 || (letter.length === 1 && !/^[A-Z]$/.test(letter))) {
+        // --- Handle Letter Input ---
+        let inputLetter = dayLetterInput.value.trim().toUpperCase();
+        if (inputLetter.length > 1 || (inputLetter.length === 1 && !/^[A-Z]$/.test(inputLetter))) {
             alert("Please enter only a single letter (A-Z) for the associated letter, or leave it blank.");
             dayLetterInput.focus();
             return;
         }
-        if (letter.length === 0) {
-            letter = null;
-        }
+        const persistentLetterToSave = inputLetter.length === 1 ? inputLetter : null;
+        // --- End Handle Letter Input ---
 
+        // Validation for day-specific data (offers/selection)
         const hasOffers = offeredObjects.length > 0;
-        const hasSelection = selected !== null;
-        const hasLetter = letter !== null;
+        const hasSelection = selected !== null; // True even if "None" was explicitly selected
 
-        if (!hasOffers && !hasSelection && !hasLetter) {
-            alert(`Please provide at least one offer, a final selection (even "None"), or an associated letter to log this day.`);
-            return;
-        }
+        // Allow saving even if only the letter is changed
+        // if (!hasOffers && !hasSelection && persistentLetterToSave === (roomData[cellId]?.letter || null)) {
+        //     alert(`No changes detected. Please provide offers/selection or modify the letter.`);
+        //     return;
+        // }
 
         if (selected !== null && !offeredObjects.some(o => o.name === selected)) {
              alert("The final selected room is not one of the chosen offers. Please re-select the final choice or add the room to the offers.");
              return;
         }
 
+        // --- Ensure cell data structure exists ---
         if (!roomData[cellId]) {
-            roomData[cellId] = [];
+            roomData[cellId] = { days: [], letter: null };
+        } else if (!roomData[cellId].days) { // Fix if somehow only letter exists
+             roomData[cellId].days = [];
         }
+        // --- End Ensure Structure ---
 
-        const dayEntryData = {
-            day: currentDay,
-            offered: offeredObjects.map(o => o.name),
-            selected: selected,
-            letter: letter
-        };
 
-        if (editIndex !== -1) {
-            // UPDATE
-            if (roomData[cellId][editIndex] && roomData[cellId][editIndex].day === currentDay) {
-                 roomData[cellId][editIndex] = dayEntryData;
-                 console.log(`Updated Day ${currentDay} for ${cellId}`);
+        // --- Save Persistent Letter ---
+        roomData[cellId].letter = persistentLetterToSave;
+        console.log(`Set persistent letter for ${cellId} to: ${persistentLetterToSave}`);
+        // --- End Save Persistent Letter ---
+
+
+        // --- Prepare and Save Day-Specific Data (if any) ---
+        // Only save day entry if there were offers or a selection made
+        if (hasOffers || hasSelection) {
+            const dayEntryData = { // Letter is NOT included here anymore
+                day: currentDay,
+                offered: offeredObjects.map(o => o.name),
+                selected: selected,
+            };
+
+            const daysArray = roomData[cellId].days;
+
+            if (editIndex !== -1) {
+                // UPDATE existing day entry
+                if (daysArray[editIndex] && daysArray[editIndex].day === currentDay) {
+                     daysArray[editIndex] = dayEntryData;
+                     console.log(`Updated Day ${currentDay} data for ${cellId}`);
+                } else {
+                     console.error(`Error updating day data: Index ${editIndex} mismatch.`);
+                     alert(`Error updating day data.`); closeModal(); return;
+                }
             } else {
-                 console.error(`Error updating: Index ${editIndex} mismatch.`);
-                 alert(`Error updating day data.`);
-                 closeModal(); return;
+                // ADD NEW day entry (check for duplicates first)
+                const existingDayEntry = daysArray.find(d => d.day === currentDay);
+                if (existingDayEntry) {
+                    // Overwrite if adding again for the same day? Or prevent?
+                    // Let's overwrite for simplicity, like an implicit edit.
+                    const idxToOverwrite = daysArray.findIndex(d => d.day === currentDay);
+                    daysArray[idxToOverwrite] = dayEntryData;
+                     console.log(`Overwrote Day ${currentDay} data for ${cellId}`);
+                } else {
+                    daysArray.push(dayEntryData);
+                    daysArray.sort((a, b) => a.day - b.day); // Keep sorted
+                    console.log(`Added Day ${currentDay} data for ${cellId}`);
+                }
             }
         } else {
-            // ADD NEW
-            const existingDayEntry = roomData[cellId].find(d => d.day === currentDay);
-            if (existingDayEntry) {
-                alert(`Data for Day ${currentDay} already exists. Edit it instead.`);
-                closeModal(); return;
-            }
-            roomData[cellId].push(dayEntryData);
-            roomData[cellId].sort((a, b) => a.day - b.day); // Keep day entries sorted
-            console.log(`Added Day ${currentDay} for ${cellId}:`, dayEntryData);
+             console.log(`No day-specific data (offers/selection) to save for Day ${currentDay}. Only letter updated.`);
         }
+        // --- End Save Day-Specific Data ---
 
-        saveData();
-        updateCellDisplay(cellId);
-        updateInfoPanel();
+        saveData(); // Save the updated roomData (with new structure and letter)
+        updateCellDisplay(cellId); // Update grid
+        updateInfoPanel(); // Update side panel
         closeModal();
     }
 
@@ -897,7 +1004,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // --- Initialization ---
-    loadData(); // Loads room data, current day, and sort preference
+    loadData(); // Loads data, including migration and sort preference
     createGrid();
     updateAllCellDisplays();
     updateInfoPanel();
@@ -908,7 +1015,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (currentDayInput) currentDayInput.addEventListener('change', (e) => setCurrentDay(e.target.value));
     if (closeModalButton) closeModalButton.addEventListener('click', closeModal);
     if (submitDayButton) submitDayButton.addEventListener('click', handleSubmitDay);
-
     if (addDayButton) {
         addDayButton.addEventListener('click', () => {
             if (selectedCellElement) {
@@ -918,8 +1024,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
-    // --- Listener for Sort Selector ---
     if (sortMethodSelector) {
         sortMethodSelector.addEventListener('change', (event) => {
             currentSortMethod = event.target.value;
@@ -931,21 +1035,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    // --- End Listener ---
+    window.addEventListener('click', (event) => { if (event.target === modal) closeModal(); });
 
-    window.addEventListener('click', (event) => {
-        if (event.target === modal) closeModal();
-    });
 
+    // Clear Data Button Logic (Adjusted slightly)
     if (clearDataButton) {
         clearDataButton.addEventListener('click', () => {
              if (modal && modal.style.display === 'block') closeModal();
-            if (confirm('Are you sure you want to clear ALL logged data for ALL cells? This cannot be undone.')) {
-                roomData = {};
+            if (confirm('Are you sure you want to clear ALL logged data for ALL cells (including letters)? This cannot be undone.')) {
+                roomData = {}; // Clear the main data object
                 currentDay = 1;
                 try { localStorage.removeItem('bluePrinceRoomData'); } catch (e) { console.error("Error clearing room data:", e); }
                 try { localStorage.setItem('bluePrinceCurrentDay', currentDay.toString()); } catch (e) { console.error("Error resetting current day:", e); }
-                // No need to clear sort preference here, user might want to keep it
+                // Keep sort preference
+
                 if (selectedCellElement) {
                     selectedCellElement.classList.remove('selected');
                     selectedCellElement = null;
