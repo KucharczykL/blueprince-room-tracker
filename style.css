@@ -93,6 +93,7 @@ h1, h2, h3, h4 {
     border-radius: 0; /* Square corners */
     line-height: 1.2;
     white-space: break-spaces;
+    flex-direction: column;
 }
 
 /* Style for cells displaying a selected room name */
