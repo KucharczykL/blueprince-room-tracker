@@ -421,3 +421,15 @@ h1, h2, h3, h4 {
 #submit-day:hover {
     background-color: #218838;
 }
+
+.add-edit-button {
+    margin-left: 15px; /* Add some space */
+    padding: 3px 8px;
+    font-size: 0.9em;
+    cursor: pointer;
+}
+
+.add-edit-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}

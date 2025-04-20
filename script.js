@@ -97,6 +97,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { name: "Trading Post", color: "gray", exit_no: 1, rarity: "common", extra_data: [{ outer: true }] },
         { name: "Tomb", color: "gray", exit_no: 1, rarity: "common", extra_data: [{ outer: true }] },
         { name: "Foundation", color: "blue", exit_no: 3, rarity: "rare", extra_data: []},
+        { name: "Freezer", color: "blue", exit_no: 1, rarity: "rare", extra_data: []},
+        { name: "Classroom", color: "blue", exit_no: 2, rarity: "rare", extra_data: []},
     ];
 
     // --- DOM Element References ---
@@ -120,6 +122,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const prevDayButton = document.getElementById('prev-day');
     const nextDayButton = document.getElementById('next-day');
     const currentCalendarDateDisplay = document.getElementById('current-calendar-date'); // <-- Add this line
+    const addDayButton = document.getElementById('add-day-button'); // <-- Add reference for the new button
+
 
     // --- Constants and State ---
     const ROWS = 9;
@@ -289,14 +293,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     letterSpan.style.marginLeft = '5px'; // Optional: add some space
                     cell.appendChild(letterSpan);
                 } else {
-                    // cell.textContent = cellId; // Content set by updateCellDisplay
-                    cell.addEventListener('mouseover', handleCellMouseOver);
                     cell.addEventListener('click', handleCellClick);
                 }
                 gridContainer.appendChild(cell);
             }
         }
-        gridContainer.addEventListener('mouseout', handleGridMouseOut);
     }
 
     function updateCellDisplay(cellId) {
@@ -389,6 +390,12 @@ document.addEventListener('DOMContentLoaded', () => {
             dayCountDisplay.textContent = '0';
             dayList.innerHTML = '';
             frequencyList.innerHTML = '';
+            // Disable and reset the Add/Edit button
+            if (addDayButton) {
+                addDayButton.disabled = true;
+                addDayButton.textContent = 'Add/Edit Day';
+                addDayButton.title = 'Select a cell first';
+            }
             return;
         }
 
@@ -399,6 +406,20 @@ document.addEventListener('DOMContentLoaded', () => {
         days.sort((a, b) => a.day - b.day);
 
         dayCountDisplay.textContent = days.length;
+
+        // --- Update Add/Edit Button ---
+        if (addDayButton) {
+            addDayButton.disabled = false; // Enable the button
+            const existingDayIndex = days.findIndex(d => d.day === currentDay);
+            if (existingDayIndex !== -1) {
+                addDayButton.textContent = `Edit Day ${currentDay}`;
+                addDayButton.title = `Edit data for Day ${currentDay} in ${cellId}`;
+            } else {
+                addDayButton.textContent = `Add Day ${currentDay}`;
+                addDayButton.title = `Add data for Day ${currentDay} to ${cellId}`;
+            }
+        }
+        // --- End Button Update ---
 
         dayList.innerHTML = '';
         days.forEach((dayEntry, index) => {
@@ -527,42 +548,35 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function handleCellClick(event) {
+        const clickedElement = event.target.closest('.grid-cell');
 
-    // --- Event Handlers ---
-    function handleCellMouseOver(event) {
-        if (modal.style.display === 'block') return;
-        const hoveredElement = event.target.closest('.grid-cell');
-        if (!hoveredElement || hoveredElement.classList.contains('fixed-cell') || hoveredElement === selectedCellElement) {
+        // Ignore clicks on non-cells or fixed cells
+        if (!clickedElement || clickedElement.classList.contains('fixed-cell')) {
             return;
         }
+
+        // Ignore clicks that are actually on delete buttons within the info panel
+        if (event.target.closest('.delete-day-button')) {
+             return;
+        }
+
+        // If clicking the *already selected* cell, do nothing (modal opened by button now)
+        if (clickedElement === selectedCellElement) {
+            return;
+        }
+
+        // Remove selection from the previously selected cell (if any)
         if (selectedCellElement) {
             selectedCellElement.classList.remove('selected');
         }
-        selectedCellElement = hoveredElement;
+
+        // Select the new cell
+        selectedCellElement = clickedElement;
         selectedCellElement.classList.add('selected');
+
+        // Update the info panel to show data for the newly selected cell
         updateInfoPanel();
-    }
-
-    function handleGridMouseOut(event) {
-        if (modal.style.display === 'block') return;
-        if (!event.relatedTarget || !gridContainer.contains(event.relatedTarget)) {
-            if (selectedCellElement) {
-                selectedCellElement.classList.remove('selected');
-                selectedCellElement = null;
-                updateInfoPanel();
-            }
-        }
-    }
-
-    function handleCellClick(event) {
-        const clickedElement = event.target.closest('.grid-cell');
-        // Updated check to prevent modal opening on info panel tag click
-        if (event.target.closest('.delete-day-button') || event.target.closest('.day-offers .grid-cell')) {
-            return;
-        }
-        if (clickedElement && !clickedElement.classList.contains('fixed-cell') && clickedElement === selectedCellElement) {
-            openModal();
-        }
     }
 
     function handleDeleteDay(event) {
@@ -910,6 +924,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadData();
     createGrid();
     updateAllCellDisplays();
+    updateInfoPanel();
 
     // --- Event Listeners ---
     if (prevDayButton) prevDayButton.addEventListener('click', () => changeCurrentDay(-1));
@@ -917,6 +932,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (currentDayInput) currentDayInput.addEventListener('change', (e) => setCurrentDay(e.target.value));
     if (closeModalButton) closeModalButton.addEventListener('click', closeModal);
     if (submitDayButton) submitDayButton.addEventListener('click', handleSubmitDay);
+
+    // Add listener for the new button
+    if (addDayButton) {
+        addDayButton.addEventListener('click', () => {
+            if (selectedCellElement) { // Only open if a cell is selected
+                openModal();
+            } else {
+                // This case should ideally be prevented by the button being disabled,
+                // but we add an alert just in case.
+                alert("Please select a cell from the grid first.");
+            }
+        });
+    }
 
     window.addEventListener('click', (event) => {
         if (event.target === modal) closeModal();

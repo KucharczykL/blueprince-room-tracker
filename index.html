@@ -28,9 +28,14 @@
         </div>
         <div id="cell-info" class="info-panel">
             <h2>Cell Information</h2>
-            <p>Hover over a cell to view its data. Click a selected cell to log/edit data for the <strong>current day</strong>.</p>
+            <p id="selected-cell-id">No cell selected</p>
+            <hr>
+            <p>Click a selected cell to view data for the <strong>current day</strong>.</p>
             <h3 id="selected-cell-id"></h3>
-            <h4>Logged Days (<span id="day-count">0</span>):</h4>
+            <h4>
+                Logged Days (<span id="day-count">0</span>):
+                <button id="add-day-button" class="add-edit-button" disabled title="Select a cell first">Add/Edit Day</button>
+            </h4>
             <ul id="day-list"></ul>
             <h4>Room Offer Frequencies:</h4>
             <ul id="frequency-list"></ul>
