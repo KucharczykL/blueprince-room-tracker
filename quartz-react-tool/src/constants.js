@@ -67,7 +67,6 @@ export     const PREDEFINED_ROOMS = [
     { name: "Courtyard", color: "green", exit_no: 3, rarity: "common", extra_data: [] },
     { name: "Cloister", color: "green", exit_no: 4, rarity: "common", extra_data: [] },
     { name: "Veranda", color: "green", exit_no: 1, rarity: "common", extra_data: [] },
-    { name: "Conservatory", color: "green", exit_no: 2, rarity: "common", extra_data: [] },
     { name: "Greenhouse", color: "green", exit_no: 1, rarity: "common", extra_data: [] },
     { name: "Morning Room", color: "green", exit_no: 2, rarity: "common", extra_data: [] },
     { name: "Commissary", color: "yellow", exit_no: 1, rarity: "common", extra_data: [] },
