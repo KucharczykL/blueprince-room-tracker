@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { PREDEFINED_ROOMS, COLOR_NAME_TO_VALUE, OUTER_ROOM_ID } from '../constants';
-import RoomTag from './RoomTag';
+import RoomCell from './RoomCell';
 
 function AddEditDayModal({
     isOpen,
@@ -9,45 +9,41 @@ function AddEditDayModal({
     cellId,
     currentDay,
     roomData,
-    sortMethod,
 }) {
-    const [currentOffers, setCurrentOffers] = useState([]); // Array of room *names*
-    const [finalSelection, setFinalSelection] = useState(null); // Room name or null
+    const [currentOffers, setCurrentOffers] = useState([]);
+    const [finalSelection, setFinalSelection] = useState(null);
     const [letter, setLetter] = useState('');
-    const [editIndex, setEditIndex] = useState(-1); // Store index if editing
+    const [editIndex, setEditIndex] = useState(-1);
+    const [sortMethod, setSortMethod] = useState('predefined');
 
     const isOuterRoom = cellId === OUTER_ROOM_ID;
     const displayId = isOuterRoom ? "Outer Room" : cellId;
-    const cellInfo = roomData[cellId] || { days: [], letter: null };
+    const cellInfo = (cellId && roomData[cellId]) || { days: [], letter: null };
 
-    // Effect to reset state when modal opens or cellId/currentDay changes
     useEffect(() => {
         if (isOpen && cellId) {
-            const existingDayIndex = cellInfo.days.findIndex(d => d.day === currentDay);
-            const existingDayData = existingDayIndex !== -1 ? cellInfo.days[existingDayIndex] : null;
+            const currentCellInfo = roomData[cellId] || { days: [], letter: null };
+            const existingDayIndex = currentCellInfo.days.findIndex(d => d.day === currentDay);
+            const existingDayData = existingDayIndex !== -1 ? currentCellInfo.days[existingDayIndex] : null;
 
-            setLetter(cellInfo.letter || '');
+            setLetter(currentCellInfo.letter || '');
             setEditIndex(existingDayIndex);
 
             if (existingDayData) {
-                // Edit mode
                 setCurrentOffers(existingDayData.offered || []);
                 setFinalSelection(existingDayData.selected);
             } else {
-                // Add mode
                 setCurrentOffers([]);
                 setFinalSelection(null);
             }
         } else {
-            // Reset when closed
             setCurrentOffers([]);
             setFinalSelection(null);
             setLetter('');
             setEditIndex(-1);
         }
-    }, [isOpen, cellId, currentDay, roomData]); // Rerun if these change while open
+    }, [isOpen, cellId, currentDay, roomData]);
 
-    // Filter and Sort Rooms for Selector Grid
     const availableRooms = useMemo(() => {
         let rooms = [...PREDEFINED_ROOMS];
         if (isOuterRoom) {
@@ -56,7 +52,6 @@ function AddEditDayModal({
         if (sortMethod === 'alphabetical') {
             rooms.sort((a, b) => a.name.localeCompare(b.name));
         }
-        // else 'predefined' order is maintained (within filter)
         return rooms;
     }, [isOuterRoom, sortMethod]);
 
@@ -66,8 +61,6 @@ function AddEditDayModal({
             const newOffers = isSelected
                 ? prevOffers.filter(name => name !== roomName)
                 : [...prevOffers, roomName];
-
-            // If the final selection was just removed from offers, reset it
             if (isSelected && finalSelection === roomName) {
                 setFinalSelection(null);
             }
@@ -76,12 +69,11 @@ function AddEditDayModal({
     };
 
     const handleFinalSelection = (roomName) => {
-        setFinalSelection(roomName); // roomName can be null for 'None'
+        setFinalSelection(roomName);
     };
 
     const handleLetterChange = (e) => {
         let value = e.target.value.toUpperCase();
-        // Allow only single A-Z or empty
         if (value.length <= 1 && /^[A-Z]?$/.test(value)) {
             setLetter(value);
         }
@@ -90,34 +82,33 @@ function AddEditDayModal({
     const handleSubmit = (e) => {
         e.preventDefault();
         const finalLetter = letter.trim() || null;
-
-        // Validation
         if (finalSelection !== null && !currentOffers.includes(finalSelection)) {
             alert("The final selected room is not one of the chosen offers. Please re-select the final choice or add the room to the offers.");
             return;
         }
-
         onSubmit({
             cellId,
             day: currentDay,
             offered: currentOffers,
             selected: finalSelection,
             letter: finalLetter,
-            editIndex: editIndex, // Pass index back for potential update/overwrite logic
         });
-        // onClose(); // Usually called by parent after successful submit
     };
 
     if (!isOpen) return null;
 
     const offeredRoomDetails = currentOffers
         .map(name => PREDEFINED_ROOMS.find(r => r.name === name))
-        .filter(Boolean); // Get full details for display
+        .filter(Boolean);
+
+    const modalCellSizeClass = "w-[60px] h-[60px] text-[9px] p-1";
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center mb-4">
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+            {/* Modal Content Box: Increased max-width */}
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-7xl max-h-[90vh] flex flex-col"> {/* Changed max-w-5xl to max-w-7xl */}
+                {/* Modal Header */}
+                <div className="flex justify-between items-center mb-4 flex-shrink-0">
                     <h2 className="text-xl font-semibold">
                         {editIndex !== -1 ? 'Edit' : 'Log'} Day {currentDay} for Cell: {displayId}
                         {cellInfo.letter && ` [${cellInfo.letter}]`}
@@ -125,74 +116,89 @@ function AddEditDayModal({
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
                 </div>
 
-                <form onSubmit={handleSubmit}>
-                    {/* Letter Input */}
-                    <div className="mb-4">
-                        <label htmlFor="day-letter-input" className="block text-sm font-medium text-gray-700 mb-1">
-                            Associated Letter (Optional, Single A-Z)
-                        </label>
-                        <input
-                            type="text"
-                            id="day-letter-input"
-                            value={letter}
-                            onChange={handleLetterChange}
-                            maxLength="1"
-                            className="w-20 p-2 border border-gray-300 rounded shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                            placeholder="e.g., A"
-                        />
+                <form onSubmit={handleSubmit} className="flex flex-col flex-grow min-h-0">
+                    {/* Top inputs section */}
+                    <div className="flex-shrink-0">
+                        {/* Letter Input */}
+                        <div className="mb-4">
+                            <label htmlFor="day-letter-input" className="block text-sm font-medium text-gray-700 mb-1">
+                                Associated Letter (Optional, Single A-Z)
+                            </label>
+                            <input
+                                type="text"
+                                id="day-letter-input"
+                                value={letter}
+                                onChange={handleLetterChange}
+                                maxLength="1"
+                                className="w-20 p-2 border border-gray-300 rounded shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                placeholder="e.g., A"
+                            />
+                        </div>
+                        {/* Sort Selector */}
+                        <div className="mb-3 text-right">
+                            <label htmlFor="modal-sort-selector" className="text-sm text-gray-600 mr-1">Sort by:</label>
+                            <select
+                                id="modal-sort-selector"
+                                value={sortMethod}
+                                onChange={(e) => setSortMethod(e.target.value)}
+                                className="p-1 border border-gray-300 rounded text-sm shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                                <option value="predefined">Predefined</option>
+                                <option value="alphabetical">Alphabetical</option>
+                            </select>
+                        </div>
                     </div>
 
-                    {/* Room Selector Grid */}
-                    <div className="mb-4">
-                        <h3 className="text-lg font-medium mb-2">Available Room Offers</h3>
-                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 max-h-60 overflow-y-auto border p-2 rounded">
+                    {/* Room Selector Grid Section */}
+                    <div className="mb-4 flex flex-col flex-grow min-h-0">
+                        <h3 className="text-lg font-medium mb-2 flex-shrink-0">Available Room Offers</h3>
+                        {/* Grid Container: Changed grid-cols-* to use auto-fit */}
+                        <div className="grid grid-cols-[repeat(auto-fit,minmax(60px,1fr))] gap-2 border p-2 rounded overflow-y-auto flex-grow">
                             {availableRooms.map(room => {
                                 const isSelected = currentOffers.includes(room.name);
-                                const colorValue = COLOR_NAME_TO_VALUE[room.color] || '#ccc';
+                                const colorValue = COLOR_NAME_TO_VALUE[room.color] || '#FFFFFF';
                                 return (
-                                    <button
+                                    <RoomCell
                                         key={room.name}
-                                        type="button" // Prevent form submission
+                                        roomName={room.name}
+                                        roomColor={colorValue}
+                                        isSelectedInModal={isSelected}
                                         onClick={() => handleRoomSelectionToggle(room.name)}
-                                        className={`p-2 text-xs rounded border-2 transition-all ${isSelected ? 'ring-2 ring-offset-1 ring-blue-500 bg-blue-100' : 'hover:bg-gray-100'}`}
-                                        style={{ borderColor: colorValue }}
-                                        title={room.name}
-                                    >
-                                        {room.name}
-                                    </button>
+                                        className={modalCellSizeClass}
+                                    />
                                 );
                             })}
                         </div>
                     </div>
 
                     {/* Chosen Offers & Final Selection */}
-                    <div className="mb-6">
+                    <div className="mb-6 flex-shrink-0">
                         <h3 className="text-lg font-medium mb-2">Choose Final Selection</h3>
-                        <div className="flex flex-wrap items-center gap-2 border p-2 rounded bg-gray-50 min-h-[40px]">
-                            <button
-                                type="button"
+                        <div className="flex flex-wrap items-center gap-2 border p-2 rounded bg-gray-50 min-h-[70px]">
+                            <RoomCell
+                                isNoneOption={true}
+                                isSelectedInModal={finalSelection === null}
                                 onClick={() => handleFinalSelection(null)}
-                                className={`px-3 py-1 text-sm rounded border border-gray-400 ${finalSelection === null ? 'bg-green-200 ring-2 ring-green-500' : 'bg-white hover:bg-gray-100'}`}
-                            >
-                                None
-                            </button>
+                                className={modalCellSizeClass}
+                            />
                             {offeredRoomDetails.length === 0 && finalSelection !== null && (
                                 <em className="text-gray-500 text-sm">Select offers from grid above.</em>
                             )}
                             {offeredRoomDetails.map(offer => (
-                                <RoomTag
+                                <RoomCell
                                     key={offer.name}
                                     roomName={offer.name}
-                                    roomColorName={offer.color}
+                                    roomColor={COLOR_NAME_TO_VALUE[offer.color] || '#FFFFFF'}
+                                    isFinalSelection={finalSelection === offer.name}
                                     onClick={() => handleFinalSelection(offer.name)}
-                                    className={`cursor-pointer transition-all ${finalSelection === offer.name ? 'ring-2 ring-offset-1 ring-green-500 scale-105' : 'hover:opacity-80'}`}
+                                    className={`${modalCellSizeClass} cursor-pointer`}
                                 />
                             ))}
                         </div>
                     </div>
 
                     {/* Submit Button */}
-                    <div className="flex justify-end">
+                    <div className="flex justify-end flex-shrink-0">
                         <button
                             type="button"
                             onClick={onClose}
