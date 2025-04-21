@@ -2,6 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { PREDEFINED_ROOMS, COLOR_NAME_TO_VALUE, OUTER_ROOM_ID } from '../constants';
 import RoomCell from './RoomCell';
 
+// Define localStorage key constant
+const SORT_METHOD_STORAGE_KEY = 'bluePrinceSortMethod';
+
 function AddEditDayModal({
     isOpen,
     onClose,
@@ -14,12 +17,19 @@ function AddEditDayModal({
     const [finalSelection, setFinalSelection] = useState(null);
     const [letter, setLetter] = useState('');
     const [editIndex, setEditIndex] = useState(-1);
-    const [sortMethod, setSortMethod] = useState('predefined');
+    // Initialize sortMethod from localStorage or default
+    const [sortMethod, setSortMethod] = useState(() => {
+        const storedSortMethod = localStorage.getItem(SORT_METHOD_STORAGE_KEY);
+        return (storedSortMethod && (storedSortMethod === 'predefined' || storedSortMethod === 'alphabetical'))
+            ? storedSortMethod
+            : 'predefined'; // Default value
+    });
 
     const isOuterRoom = cellId === OUTER_ROOM_ID;
     const displayId = isOuterRoom ? "Outer Room" : cellId;
     const cellInfo = (cellId && roomData[cellId]) || { days: [], letter: null };
 
+    // Effect to load/reset modal state
     useEffect(() => {
         if (isOpen && cellId) {
             const currentCellInfo = roomData[cellId] || { days: [], letter: null };
@@ -37,12 +47,24 @@ function AddEditDayModal({
                 setFinalSelection(null);
             }
         } else {
+            // Reset fields when closed or cellId is missing
             setCurrentOffers([]);
             setFinalSelection(null);
             setLetter('');
             setEditIndex(-1);
         }
     }, [isOpen, cellId, currentDay, roomData]);
+
+    // Effect to save sortMethod to localStorage whenever it changes
+    useEffect(() => {
+        try {
+            localStorage.setItem(SORT_METHOD_STORAGE_KEY, sortMethod);
+            console.log("Modal sort preference saved:", sortMethod);
+        } catch (e) {
+            console.error("Error saving modal sort preference:", e);
+        }
+    }, [sortMethod]);
+
 
     const availableRooms = useMemo(() => {
         let rooms = [...PREDEFINED_ROOMS];
@@ -105,8 +127,8 @@ function AddEditDayModal({
 
     return (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-            {/* Modal Content Box: Increased max-width */}
-            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-7xl max-h-[90vh] flex flex-col"> {/* Changed max-w-5xl to max-w-7xl */}
+            {/* Modal Content Box */}
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-7xl max-h-[90vh] flex flex-col">
                 {/* Modal Header */}
                 <div className="flex justify-between items-center mb-4 flex-shrink-0">
                     <h2 className="text-xl font-semibold">
@@ -152,7 +174,6 @@ function AddEditDayModal({
                     {/* Room Selector Grid Section */}
                     <div className="mb-4 flex flex-col flex-grow min-h-0">
                         <h3 className="text-lg font-medium mb-2 flex-shrink-0">Available Room Offers</h3>
-                        {/* Grid Container: Changed grid-cols-* to use auto-fit */}
                         <div className="grid grid-cols-[repeat(auto-fit,minmax(60px,1fr))] gap-2 border p-2 rounded overflow-y-auto flex-grow">
                             {availableRooms.map(room => {
                                 const isSelected = currentOffers.includes(room.name);
