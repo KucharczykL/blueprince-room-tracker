@@ -1,7 +1,7 @@
 // src/components/AddEditDayModal.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { PREDEFINED_ROOMS, OUTER_ROOM_ID } from '../constants';
-import RoomCell from './RoomCell'; // Correct path
+import RoomCell from './RoomCell';
 
 // Define localStorage key constant
 const SORT_METHOD_STORAGE_KEY = 'bluePrinceSortMethod';
@@ -12,14 +12,13 @@ function AddEditDayModal({
     onSubmit,
     cellId,
     currentDay,
-    roomData, // Contains { cellId: { days: [], letter: 'A', assignedRoomName: 'Spare Room' }, ... }
+    initialCellData, // Renamed prop: Contains { days: [], letter: 'A' | null } or null
 }) {
     // State for day-specific data
     const [currentOffers, setCurrentOffers] = useState([]);
     const [finalSelection, setFinalSelection] = useState(null);
 
-    // State for cell-persistent data
-    const [assignedRoomName, setAssignedRoomName] = useState(''); // NEW: Holds the primary room name for the cell
+    // State for cell-persistent data (letter only)
     const [letter, setLetter] = useState(''); // Player assigned letter for display
 
     // Other state
@@ -37,14 +36,13 @@ function AddEditDayModal({
     // Effect to load/reset modal state
     useEffect(() => {
         if (isOpen && cellId) {
-            // Get the specific cell's data from the passed roomData prop
-            const currentCellData = roomData[cellId] || { days: [], letter: null, assignedRoomName: null };
-            const existingDayIndex = currentCellData.days.findIndex(d => d.day === currentDay);
-            const existingDayData = existingDayIndex !== -1 ? currentCellData.days[existingDayIndex] : null;
+            // Use the initialCellData passed from App
+            const cellData = initialCellData || { days: [], letter: null };
+            const existingDayIndex = cellData.days.findIndex(d => d.day === currentDay);
+            const existingDayData = existingDayIndex !== -1 ? cellData.days[existingDayIndex] : null;
 
-            // Load cell-persistent data
-            setAssignedRoomName(currentCellData.assignedRoomName || ''); // Load existing name or empty string for dropdown
-            setLetter(currentCellData.letter || ''); // Load existing letter
+            // Load cell-persistent data (letter only)
+            setLetter(cellData.letter || ''); // Load existing letter
 
             // Load day-specific data
             setEditIndex(existingDayIndex);
@@ -60,10 +58,9 @@ function AddEditDayModal({
             setCurrentOffers([]);
             setFinalSelection(null);
             setLetter('');
-            setAssignedRoomName(''); // Reset assigned name
             setEditIndex(-1);
         }
-    }, [isOpen, cellId, currentDay, roomData]); // Dependencies
+    }, [isOpen, cellId, currentDay, initialCellData]); // Use initialCellData in dependency
 
     // Effect to save sortMethod to localStorage whenever it changes
     useEffect(() => {
@@ -76,23 +73,17 @@ function AddEditDayModal({
 
 
     const availableRoomsForOffers = useMemo(() => {
-        // Filter rooms available for daily offers (e.g., outer rooms only if applicable)
         let rooms = [...PREDEFINED_ROOMS];
         if (isOuterRoom) {
             rooms = rooms.filter(room => room.extra_data?.some(ed => ed.outer === true));
         }
-        // Apply sorting for the offer grid
         if (sortMethod === 'alphabetical') {
             rooms.sort((a, b) => a.name.localeCompare(b.name));
         }
         return rooms;
     }, [isOuterRoom, sortMethod]);
 
-    // List of rooms for the primary assignment dropdown (usually all rooms)
-    const allRoomsForAssignment = useMemo(() => {
-        // Typically includes all rooms, maybe sorted alphabetically
-        return [...PREDEFINED_ROOMS].sort((a, b) => a.name.localeCompare(b.name));
-    }, []); // Doesn't depend on outer room status usually
+    // No longer need allRoomsForAssignment
 
     const handleRoomSelectionToggle = (roomName) => {
         setCurrentOffers(prevOffers => {
@@ -118,34 +109,27 @@ function AddEditDayModal({
         }
     };
 
-    const handleAssignedRoomChange = (e) => {
-        setAssignedRoomName(e.target.value); // Update state from dropdown
-    };
+    // Removed handleAssignedRoomChange
 
     const handleSubmit = (e) => {
         e.preventDefault();
         const finalLetter = letter.trim() || null;
-        const finalAssignedRoomName = assignedRoomName || null; // Ensure null if empty
+        // finalAssignedRoomName is removed
 
         // Validation
         if (finalSelection !== null && !currentOffers.includes(finalSelection)) {
             alert("The final selected room is not one of the chosen offers. Please re-select the final choice or add the room to the offers.");
             return;
         }
-        // Optional: Validate if assignedRoomName is selected if letter is present?
-        // if (finalLetter && !finalAssignedRoomName) {
-        //     alert("If assigning a letter, please also select the primary room for this cell.");
-        //     return;
-        // }
 
-        // Pass all relevant data back
+        // Pass only relevant data back
         onSubmit({
             cellId,
             day: currentDay,
             offered: currentOffers,
             selected: finalSelection,
             letter: finalLetter,
-            assignedRoomName: finalAssignedRoomName, // Include assigned name
+            // assignedRoomName removed
         });
     };
 
@@ -155,7 +139,6 @@ function AddEditDayModal({
         .map(name => PREDEFINED_ROOMS.find(r => r.name === name))
         .filter(Boolean);
 
-    // Modal cells can still be smaller if desired
     const modalCellSizeClass = "w-[60px] h-[60px] text-[9px] p-1";
 
     return (
@@ -166,53 +149,33 @@ function AddEditDayModal({
                 <div className="flex justify-between items-center mb-4 flex-shrink-0">
                     <h2 className="text-xl font-semibold">
                         {editIndex !== -1 ? 'Edit' : 'Log'} Day {currentDay} for Cell: {displayId}
-                        {/* Display current assigned name/letter from state */}
-                        {assignedRoomName ? ` (${assignedRoomName})` : ''}
+                        {/* Display only current letter from state */}
                         {letter ? ` [${letter}]` : ''}
                     </h2>
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex flex-col flex-grow min-h-0">
-                    {/* Top inputs section - Cell Persistent Data */}
+                    {/* Top inputs section - Only Letter Input */}
                     <div className="flex-shrink-0 border-b pb-4 mb-4">
-                        <h3 className="text-lg font-medium mb-2 text-gray-800">Cell Identity</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Assigned Room Name Dropdown */}
-                            <div>
-                                <label htmlFor="assigned-room-select" className="block text-sm font-medium text-gray-700 mb-1">
-                                    Primary Room for this Cell (Optional)
-                                </label>
-                                <select
-                                    id="assigned-room-select"
-                                    value={assignedRoomName}
-                                    onChange={handleAssignedRoomChange}
-                                    className="w-full p-2 border border-gray-300 rounded shadow-sm focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                                >
-                                    <option value="">-- Select Room --</option>
-                                    {allRoomsForAssignment.map(room => (
-                                        <option key={room.name} value={room.name}>
-                                            {room.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            {/* Letter Input */}
-                            <div>
-                                <label htmlFor="day-letter-input" className="block text-sm font-medium text-gray-700 mb-1">
-                                    Display Letter (Optional, A-Z)
-                                </label>
-                                <input
-                                    type="text"
-                                    id="day-letter-input"
-                                    value={letter}
-                                    onChange={handleLetterChange}
-                                    maxLength="1"
-                                    className="w-20 p-2 border border-gray-300 rounded shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                                    placeholder="e.g., A"
-                                />
-                            </div>
+                        {/* Removed Cell Identity heading */}
+                        {/* Removed grid layout */}
+                        {/* Letter Input */}
+                        <div>
+                            <label htmlFor="day-letter-input" className="block text-sm font-medium text-gray-700 mb-1">
+                                Display Letter (Optional, A-Z)
+                            </label>
+                            <input
+                                type="text"
+                                id="day-letter-input"
+                                value={letter}
+                                onChange={handleLetterChange}
+                                maxLength="1"
+                                className="w-20 p-2 border border-gray-300 rounded shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                placeholder="e.g., A"
+                            />
                         </div>
+                        {/* Removed Assigned Room Name Dropdown */}
                     </div>
 
                     {/* Day Specific Data Section */}
@@ -245,8 +208,7 @@ function AddEditDayModal({
                                             roomColor={room.color} // Pass NAME
                                             isSelectedInModal={isSelected}
                                             onClick={() => handleRoomSelectionToggle(room.name)}
-                                            className={modalCellSizeClass} // Apply modal-specific size
-                                            // displayLetter={null} // Not relevant for offers grid
+                                            className={modalCellSizeClass}
                                         />
                                     );
                                 })}
@@ -261,7 +223,7 @@ function AddEditDayModal({
                                     isNoneOption={true}
                                     isSelectedInModal={finalSelection === null}
                                     onClick={() => handleFinalSelection(null)}
-                                    className={modalCellSizeClass} // Apply modal-specific size
+                                    className={modalCellSizeClass}
                                 />
                                 {offeredRoomDetails.length === 0 && finalSelection !== null && (
                                     <em className="text-gray-500 text-sm">Select offers from grid above.</em>
@@ -273,14 +235,12 @@ function AddEditDayModal({
                                         roomColor={offer.color} // Pass NAME
                                         isFinalSelection={finalSelection === offer.name}
                                         onClick={() => handleFinalSelection(offer.name)}
-                                        className={`${modalCellSizeClass} cursor-pointer`} // Apply modal-specific size
-                                        // displayLetter={null} // Not relevant for final selection display
+                                        className={`${modalCellSizeClass} cursor-pointer`}
                                     />
                                 ))}
                             </div>
                         </div>
                     </div>
-
 
                     {/* Submit Button */}
                     <div className="flex justify-end flex-shrink-0 border-t pt-4">
@@ -295,7 +255,7 @@ function AddEditDayModal({
                             type="submit"
                             className="px-4 py-2 border border-transparent rounded shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                         >
-                            {editIndex !== -1 ? 'Update Day & Cell' : 'Log Day & Cell'}
+                            {editIndex !== -1 ? 'Update Day & Cell Letter' : 'Log Day & Cell Letter'}
                         </button>
                     </div>
                 </form>

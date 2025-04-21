@@ -8,7 +8,8 @@ import RoomCell from './components/RoomCell';
 import AddEditDayModal from './components/AddEditDayModal';
 
 function App() {
-    // Structure: { cellId: { days: [], letter: 'A' | null, assignedRoomName: 'Spare Room' | null }, ... }
+    // Structure: { cellId: { days: DayEntry[], letter: string | null }, ... }
+    // DayEntry: { day: number, offered: string[], selected: string | null }
     const [roomData, setRoomData] = useState({});
     const [currentDay, setCurrentDay] = useState(1);
     const [selectedCellId, setSelectedCellId] = useState(null);
@@ -16,10 +17,10 @@ function App() {
 
     // --- Data Persistence ---
     useEffect(() => {
-        console.log("--- Starting Data Load ---"); // 1. Check if this runs
+        console.log("--- Starting Data Load ---");
 
         const storedRoomData = localStorage.getItem('bluePrinceRoomData');
-        console.log("1. Raw data from localStorage:", storedRoomData); // 2. See what's actually stored
+        console.log("1. Raw data from localStorage:", storedRoomData);
 
         let loadedData = {};
         let dataWasMigrated = false;
@@ -28,19 +29,18 @@ function App() {
         if (storedRoomData) {
             try {
                 let parsedData = JSON.parse(storedRoomData);
-                console.log("2. Parsed data:", parsedData); // 3. See if parsing worked
+                console.log("2. Parsed data:", parsedData);
 
-                const migratedData = {};
+                const migratedData = {}; // Build the target data structure here
 
                 let processedCells = 0;
                 for (const cellId in parsedData) {
                     processedCells++;
-                    console.log(`3a. Processing cell: ${cellId}`); // 4. Check if loop runs
+                    console.log(`3a. Processing cell: ${cellId}`);
                     let cellData = parsedData[cellId];
-                    // Initialize with default structure
-                    let newCellStructure = { days: [], letter: null, assignedRoomName: null };
+                    // Initialize with the target structure
+                    let newCellStructure = { days: [], letter: null };
 
-                    // --- *** START FIX: Correctly copy/migrate data *** ---
                     if (Array.isArray(cellData)) { // --- Handle Old format: cellId -> array of days ---
                         dataWasMigrated = true;
                         newCellStructure.days = cellData; // Copy the days array
@@ -51,7 +51,7 @@ function App() {
                             if (Array.isArray(dayEntry.offered) && dayEntry.offered.length > 0 && typeof dayEntry.offered[0] === 'object' && dayEntry.offered[0]?.hasOwnProperty('name')) {
                                 dayEntry.offered = dayEntry.offered.map(offerObj => offerObj?.name).filter(Boolean);
                             }
-                            // Find and migrate the first letter (but DO NOT infer name from it)
+                            // Find and migrate the first letter
                             if (dayEntry.hasOwnProperty('letter') && dayEntry.letter && firstLetterFound === null) {
                                 firstLetterFound = dayEntry.letter.trim().toUpperCase();
                                 if (firstLetterFound.length > 1 || (firstLetterFound.length === 1 && !/^[A-Z]$/.test(firstLetterFound))) {
@@ -64,13 +64,12 @@ function App() {
                             }
                             delete dayEntry.letter; // Remove from individual day
                         }
-                        // assignedRoomName remains null for old format, needs user update
-                    } else if (typeof cellData === 'object' && cellData !== null) { // --- Handle New format: cellId -> object ---
-                        // Copy existing data, ensuring all props exist and are initialized if missing
+                    } else if (typeof cellData === 'object' && cellData !== null) { // --- Handle Target/Newer format: cellId -> object ---
+                        // Copy existing data, ensuring only target props exist
                         newCellStructure = {
                             days: Array.isArray(cellData.days) ? [...cellData.days] : [], // Copy days safely
                             letter: cellData.letter || null, // Copy letter or null
-                            assignedRoomName: cellData.assignedRoomName || null // Copy name or null
+                            // assignedRoomName is intentionally ignored/removed
                         };
 
                         // Check if migration needed within the object structure
@@ -87,16 +86,17 @@ function App() {
                                 internalMigration = true;
                             }
                         });
-                        // Ensure letter and assignedRoomName properties exist even if null
+                        // Ensure letter property exists even if null
                          if (!cellData.hasOwnProperty('letter')) {
                              newCellStructure.letter = null; // Ensure property exists
                              internalMigration = true;
                          }
-                         if (!cellData.hasOwnProperty('assignedRoomName')) {
-                             newCellStructure.assignedRoomName = null; // Ensure property exists
-                             internalMigration = true;
-                             migrationLog.push(`Cell ${cellId}: Added missing assignedRoomName property (as null).`);
+                         // Log if assignedRoomName was present and is being dropped
+                         if (cellData.hasOwnProperty('assignedRoomName')) {
+                            internalMigration = true; // Mark as migration if dropping the field
+                            migrationLog.push(`Cell ${cellId}: Removed unsupported 'assignedRoomName' property.`);
                          }
+
                          if(internalMigration) {
                             dataWasMigrated = true; // Mark overall migration if internal changes happened
                          }
@@ -105,12 +105,11 @@ function App() {
                         console.warn(`Skipping invalid data format for cell ${cellId} during load.`);
                         continue; // Skip this cell if format is totally wrong
                     }
-                    // --- *** END FIX *** ---
 
                     migratedData[cellId] = newCellStructure; // Assign the correctly populated structure
-                    console.log(`3b. Migrated structure for ${cellId}:`, newCellStructure); // 5. See the result for each cell
+                    console.log(`3b. Migrated structure for ${cellId}:`, newCellStructure);
                 }
-                console.log(`3c. Total cells processed in migration loop: ${processedCells}`); // 6. Confirm loop completion
+                console.log(`3c. Total cells processed in migration loop: ${processedCells}`);
 
                 if (dataWasMigrated) {
                     console.log("Data migration performed.");
@@ -125,16 +124,16 @@ function App() {
                 loadedData = migratedData; // Assign the result
 
             } catch (e) {
-                console.error("!!! Error during parsing or migration:", e); // 7. CRITICAL: Check for errors here
+                console.error("!!! Error during parsing or migration:", e);
                 loadedData = {}; // Reset on error
             }
         } else {
-            console.log("No stored room data found."); // 8. Check if storage was empty
+            console.log("No stored room data found.");
         }
 
-        console.log("4. Final loadedData before setting state:", loadedData); // 9. See the final result
+        console.log("4. Final loadedData before setting state:", loadedData);
         setRoomData(loadedData);
-        console.log("--- Data Load Complete ---"); // 10. Check if state update happens
+        console.log("--- Data Load Complete ---");
 
         // Load currentDay
         const storedDay = localStorage.getItem('bluePrinceCurrentDay');
@@ -145,49 +144,39 @@ function App() {
             }
         }
 
-    }, []); // Empty dependency array ensures this runs only once on mount
+    }, []); // Empty dependency array
 
+    // --- Saving roomData Effect ---
     useEffect(() => {
-        // Get the current state of roomData keys for checks
         const roomDataKeys = Object.keys(roomData);
         const isRoomDataEmpty = roomDataKeys.length === 0;
-
-        // Get current storage value *before* deciding to save
         const currentStorageValue = localStorage.getItem('bluePrinceRoomData');
         const storageIsEmptyOrNull = !currentStorageValue || currentStorageValue === '{}';
 
-        // --- Prevent saving initial empty state ---
-        // If roomData is empty AND storage was also initially empty/null, don't save yet.
         if (isRoomDataEmpty && storageIsEmptyOrNull) {
              console.log("Save skipped: Initial load state, roomData is empty and localStorage was empty/null.");
              return;
         }
-        // --- Prevent overwriting valid data with empty state ---
-        // If roomData is empty NOW, but storage previously had data, log a warning and skip.
-        // This might happen if something incorrectly clears the state.
         if (isRoomDataEmpty && !storageIsEmptyOrNull) {
             console.warn("Save skipped: roomData is empty, but localStorage contained data. Preventing overwrite.", currentStorageValue);
-            // Consider if this scenario indicates an error elsewhere that needs fixing.
             return;
         }
 
-        // --- Proceed with saving non-empty data ---
         try {
-            // Cleanup logic (remains the same)
             const cleanedData = { ...roomData };
             let dataWasCleaned = false;
             for (const cellId in cleanedData) {
                 const cell = cleanedData[cellId];
-                if ((!cell.days || cell.days.length === 0) && !cell.letter && !cell.assignedRoomName) {
+                // Cleanup condition: Remove cell ONLY if it has no days AND no letter
+                if ((!cell.days || cell.days.length === 0) && !cell.letter) {
                     delete cleanedData[cellId];
                     dataWasCleaned = true;
                 }
             }
 
             const dataToSave = JSON.stringify(cleanedData);
-            console.log(`Saving data (cleaned: ${dataWasCleaned}):`, dataToSave); // Log exactly what's being saved
+            console.log(`Saving data (cleaned: ${dataWasCleaned}):`, dataToSave);
 
-            // Final check: Ensure we aren't saving "{}" if cleanedData became empty after cleanup
             if (dataToSave === '{}' && !storageIsEmptyOrNull) {
                  console.warn("Save skipped: Data became empty after cleanup, but storage wasn't empty. Preventing overwrite.", currentStorageValue);
                  return;
@@ -199,7 +188,7 @@ function App() {
             console.error("Error saving room data:", e);
             alert("Could not save room data. LocalStorage might be full or unavailable.");
         }
-    }, [roomData]); // Run whenever roomData changes
+    }, [roomData]);
 
     // --- Saving currentDay Effect ---
     useEffect(() => {
@@ -210,7 +199,7 @@ function App() {
         }
     }, [currentDay]);
 
-    // --- Event Handlers (Remain the same) ---
+    // --- Event Handlers ---
     const handleCellClick = useCallback((cellId) => {
         setSelectedCellId(cellId);
     }, []);
@@ -241,27 +230,29 @@ function App() {
         setIsModalOpen(false);
     }, []);
 
-    // --- Submit Handler (Assumes modal sends assignedRoomName) ---
+    // --- Submit Handler ---
     const handleSubmitDayData = useCallback((data) => {
-        const { cellId, day, offered, selected, letter, assignedRoomName } = data;
-
-        if (assignedRoomName && !PREDEFINED_ROOMS.some(r => r.name === assignedRoomName)) {
-             console.warn(`Submitted assignedRoomName '${assignedRoomName}' for cell ${cellId} does not exist in PREDEFINED_ROOMS.`);
-        }
+        // Data from modal: { cellId, day, offered, selected, letter }
+        // assignedRoomName is NO LONGER expected or used
+        const { cellId, day, offered, selected, letter } = data;
 
         setRoomData(prevData => {
             const newData = { ...prevData };
+            // Ensure cell structure exists
             if (!newData[cellId]) {
-                newData[cellId] = { days: [], letter: null, assignedRoomName: null };
+                newData[cellId] = { days: [], letter: null };
             } else {
+                 // Ensure properties exist
                  if (!newData[cellId].days) newData[cellId].days = [];
                  if (!newData[cellId].hasOwnProperty('letter')) newData[cellId].letter = null;
-                 if (!newData[cellId].hasOwnProperty('assignedRoomName')) newData[cellId].assignedRoomName = null;
+                 // Remove assignedRoomName if it somehow exists from old state
+                 delete newData[cellId].assignedRoomName;
             }
 
-            newData[cellId].assignedRoomName = assignedRoomName || null;
+            // Store the letter
             newData[cellId].letter = letter || null;
 
+            // Day data logic
             const hasDayData = offered.length > 0 || selected !== null;
             let dayEntryData = null;
             if (hasDayData) {
@@ -271,14 +262,14 @@ function App() {
             const daysArray = newData[cellId].days;
             const existingDayIndex = daysArray.findIndex(d => d.day === day);
 
-            if (dayEntryData) {
+            if (dayEntryData) { // Save/update day entry if offers/selection exist
                 if (existingDayIndex !== -1) {
                     daysArray[existingDayIndex] = dayEntryData;
                 } else {
                     daysArray.push(dayEntryData);
                     daysArray.sort((a, b) => a.day - b.day);
                 }
-            } else {
+            } else { // Otherwise, remove day entry if it existed
                 if (existingDayIndex !== -1) {
                     daysArray.splice(existingDayIndex, 1);
                 }
@@ -317,10 +308,11 @@ function App() {
         }
     }, []);
 
-    // --- Info Panel Data (Remains the same) ---
+    // --- Info Panel Data ---
     const selectedCellInfo = useMemo(() => {
         if (!selectedCellId) return null;
-        return roomData[selectedCellId] || { days: [], letter: null, assignedRoomName: null };
+        // Default structure matches target format
+        return roomData[selectedCellId] || { days: [], letter: null };
     }, [selectedCellId, roomData]);
 
     const sortedDaysForInfoPanel = useMemo(() => {
@@ -328,6 +320,7 @@ function App() {
     }, [selectedCellInfo]);
 
     const frequencyData = useMemo(() => {
+        // Calculation remains the same (based on offered names)
         if (!selectedCellInfo || sortedDaysForInfoPanel.length === 0) return null;
         const roomCounts = {};
         let totalOffers = 0;
@@ -351,13 +344,13 @@ function App() {
                 name,
                 count,
                 probability: ((count / totalOffers) * 100).toFixed(1),
-                details: PREDEFINED_ROOMS.find(r => r.name === name)
+                details: PREDEFINED_ROOMS.find(r => r.name === name) // Lookup by NAME
             }));
         return { totalOffers, sortedRooms };
     }, [selectedCellInfo, sortedDaysForInfoPanel]);
 
 
-    // --- Add/Edit Button Logic (Remains the same) ---
+    // --- Add/Edit Button Logic ---
     const addEditButtonText = useMemo(() => {
         if (!selectedCellId) return 'Add/Edit Day';
         const isEditing = selectedCellInfo?.days.some(d => d.day === currentDay);
@@ -371,48 +364,57 @@ function App() {
         return isEditing ? `Edit data for Day ${currentDay} in ${displayId}` : `Add data for Day ${currentDay} to ${displayId}`;
     }, [selectedCellId, selectedCellInfo, currentDay]);
 
-    // --- Grid Generation (Remains the same - relies on assignedRoomName) ---
+    // --- Grid Generation ---
     const gridCells = useMemo(() => {
         const cells = [];
         for (let visualRow = 1; visualRow <= ROWS; visualRow++) {
             const rank = ROWS - visualRow + 1;
             for (let c = 1; c <= COLS; c++) {
                 const cellId = `R${rank}C${c}`;
-                const cellData = roomData[cellId] || { days: [], letter: null, assignedRoomName: null };
+                // Default structure matches target format
+                const cellData = roomData[cellId] || { days: [], letter: null };
                 const isFixed = cellId === ANTECHAMBER_ID || cellId === ENTRANCE_HALL_ID;
 
                 let roomNameToDisplay = '';
                 let roomColorName = null;
-                let letterToDisplay = cellData.letter || null;
+                let letterToDisplay = cellData.letter || null; // Get the letter for display
 
+                // Find day entry for the CURRENT day to determine display name/color
+                const entryForCurrentDay = cellData.days.find(d => d.day === currentDay);
+
+                // Handle fixed cells first
                 if (cellId === ANTECHAMBER_ID) {
                     roomNameToDisplay = 'Antechamber';
-                    letterToDisplay = null;
+                    letterToDisplay = null; // Fixed cells don't show player letters
                 } else if (cellId === ENTRANCE_HALL_ID) {
                     roomNameToDisplay = 'Entrance Hall';
-                    letterToDisplay = null;
-                } else if (cellData.assignedRoomName) {
-                    roomNameToDisplay = cellData.assignedRoomName;
-                    const assignedRoom = PREDEFINED_ROOMS.find(room => room.name === cellData.assignedRoomName);
-                    if (assignedRoom) {
-                        roomColorName = assignedRoom.color;
+                    letterToDisplay = null; // Fixed cells don't show player letters
+                } else if (entryForCurrentDay?.selected) {
+                    // --- Display based on CURRENT DAY's selection ---
+                    roomNameToDisplay = entryForCurrentDay.selected;
+                    // Lookup details by NAME
+                    const selectedRoom = PREDEFINED_ROOMS.find(room => room.name === roomNameToDisplay);
+                    if (selectedRoom) {
+                        roomColorName = selectedRoom.color; // Get color name from lookup
                     } else {
-                        console.warn(`Cell ${cellId} has assignedRoomName '${cellData.assignedRoomName}' but no match found in PREDEFINED_ROOMS.`);
-                        roomNameToDisplay = `? (${cellData.assignedRoomName})`;
-                        letterToDisplay = null;
+                        // Should not happen if saved names are valid
+                        console.warn(`Cell ${cellId} has selected room '${roomNameToDisplay}' for day ${currentDay} but no match found in PREDEFINED_ROOMS.`);
+                        roomNameToDisplay = `? (${roomNameToDisplay})`; // Indicate error
                     }
                 } else if (cellData.letter) {
-                    roomNameToDisplay = cellData.letter;
-                    roomColorName = null;
-                    letterToDisplay = null;
+                    // --- Fallback: No selection today, but has a letter ---
+                    roomNameToDisplay = ''; // Show blank or cell ID? Let's go with blank for now.
+                    roomColorName = null; // No color if no room selected today
+                    // letterToDisplay is already set
                 }
+                // Else: No selection today, no letter - cell remains blank with default color
 
                 cells.push(
                     <RoomCell
                         key={cellId}
-                        roomName={roomNameToDisplay}
-                        roomColor={roomColorName}
-                        displayLetter={letterToDisplay}
+                        roomName={roomNameToDisplay} // Pass the name (or blank)
+                        roomColor={roomColorName}   // Pass the found color name (or null)
+                        displayLetter={letterToDisplay} // Pass the letter for the corner
                         isFixed={isFixed}
                         isSelectedInGrid={selectedCellId === cellId}
                         onClick={() => handleCellClick(cellId)}
@@ -421,29 +423,33 @@ function App() {
             }
         }
         return cells;
-    }, [roomData, selectedCellId, handleCellClick]);
+    }, [roomData, selectedCellId, handleCellClick, currentDay]); // Added currentDay dependency
 
-    // --- Outer Room Cell (Remains the same - relies on assignedRoomName) ---
+    // --- Outer Room Cell ---
     const outerRoomCell = useMemo(() => {
-        const cellData = roomData[OUTER_ROOM_ID] || { days: [], letter: null, assignedRoomName: null };
+        // Default structure matches target format
+        const cellData = roomData[OUTER_ROOM_ID] || { days: [], letter: null };
         let roomNameToDisplay = '';
         let roomColorName = null;
         let letterToDisplay = cellData.letter || null;
 
-        if (cellData.assignedRoomName) {
-            roomNameToDisplay = cellData.assignedRoomName;
-            const assignedRoom = PREDEFINED_ROOMS.find(room => room.name === cellData.assignedRoomName);
-            if (assignedRoom) {
-                roomColorName = assignedRoom.color;
+        const entryForCurrentDay = cellData.days.find(d => d.day === currentDay);
+
+        if (entryForCurrentDay?.selected) {
+            // --- Display based on CURRENT DAY's selection ---
+            roomNameToDisplay = entryForCurrentDay.selected;
+            const selectedRoom = PREDEFINED_ROOMS.find(room => room.name === roomNameToDisplay);
+            if (selectedRoom) {
+                roomColorName = selectedRoom.color;
             } else {
-                console.warn(`OuterRoom has assignedRoomName '${cellData.assignedRoomName}' but no match found in PREDEFINED_ROOMS.`);
-                roomNameToDisplay = `? (${cellData.assignedRoomName})`;
-                letterToDisplay = null;
+                console.warn(`OuterRoom has selected room '${roomNameToDisplay}' for day ${currentDay} but no match found in PREDEFINED_ROOMS.`);
+                roomNameToDisplay = `? (${roomNameToDisplay})`;
             }
         } else if (cellData.letter) {
-            roomNameToDisplay = cellData.letter;
+            // --- Fallback: No selection today, but has a letter ---
+            roomNameToDisplay = ''; // Show blank
             roomColorName = null;
-            letterToDisplay = null;
+            // letterToDisplay is already set
         }
 
         return (
@@ -457,17 +463,15 @@ function App() {
                 className="w-full"
             />
         );
-    }, [roomData, selectedCellId, handleCellClick]);
+    }, [roomData, selectedCellId, handleCellClick, currentDay]); // Added currentDay dependency
 
 
-    // --- JSX Rendering (Remains largely the same) ---
+    // --- JSX Rendering ---
     return (
         <div className="flex flex-col md:flex-row min-h-screen bg-gray-100 font-sans">
             {/* Left Side */}
             <div className="flex-grow p-4 overflow-y-auto">
-                {/* ... Header, Controls, Grid, Outer Room ... */}
                  <h1 className="text-2xl font-bold mb-4 text-center text-blue-800">Quartz Mansion Tracker</h1>
-
                 {/* Controls Row */}
                 <div className="flex flex-wrap items-center justify-center gap-4 mb-4 p-2 bg-white rounded shadow">
                     {/* Day Navigation */}
@@ -498,8 +502,6 @@ function App() {
                         Clear All Data
                     </button>
                 </div>
-
-
                 {/* Mansion Grid */}
                 <div
                     id="mansion-grid"
@@ -508,7 +510,6 @@ function App() {
                 >
                     {gridCells}
                 </div>
-
                 {/* Outer Room */}
                 <div className="mt-4 max-w-[370px] mx-auto">
                     <h3 className="text-lg font-semibold mb-1 text-center">Outer Area</h3>
@@ -518,17 +519,13 @@ function App() {
 
             {/* Right Side */}
             <div className="w-full md:w-1/3 lg:w-1/4 min-w-[300px] bg-white p-4 shadow-lg overflow-y-auto border-l border-gray-200 flex-shrink-0">
-                {/* ... Info Panel Content ... */}
                  <h2 className="text-xl font-semibold mb-3 border-b pb-2">Cell Information</h2>
                 <div id="cell-info">
                     <div className="mb-3">
                         <strong className="block">Selected Cell:</strong>
+                        {/* Display only Cell ID and Letter */}
                         <span id="selected-cell-id" className="text-blue-700 font-medium break-words">
                             {selectedCellId ? (selectedCellId === OUTER_ROOM_ID ? 'Outer Room' : selectedCellId) : 'None'}
-                            {selectedCellInfo?.assignedRoomName
-                                ? ` (${selectedCellInfo.assignedRoomName})`
-                                : ''
-                            }
                             {selectedCellInfo?.letter ? ` [${selectedCellInfo.letter}]` : ''}
                         </span>
                     </div>
@@ -635,7 +632,8 @@ function App() {
                 onSubmit={handleSubmitDayData}
                 cellId={selectedCellId}
                 currentDay={currentDay}
-                roomData={roomData}
+                // Pass only necessary data for modal to read initial state
+                initialCellData={selectedCellInfo} // Pass selected cell's data
             />
         </div>
     );
