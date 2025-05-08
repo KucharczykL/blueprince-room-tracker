@@ -1,7 +1,7 @@
 // src/components/RoomCell.jsx
 import React from 'react';
 import clsx from 'clsx';
-import { COLOR_NAME_TO_VALUE } from '../constants';
+import { CELL_SIZE, COLOR_NAME_TO_VALUE } from '../constants';
 
 /**
  * Determines a contrasting text color (black or white) for a given background hex color.
@@ -48,8 +48,7 @@ const RoomCell = ({
   // Show main content if it's a room name, the "None" option, or even just a letter (fallback display)
   const showContent = roomName || isNoneOption;
 
-  // Base classes now include relative positioning for the letter
-  const baseClasses = 'w-[70px] h-[70px] relative flex flex-col justify-center items-center border text-center whitespace-break-spaces leading-tight p-[2px] transition-colors duration-200 box-border overflow-hidden'; // Added relative, overflow-hidden
+  const baseClasses = `w-20 h-20 relative flex flex-col justify-center items-center border text-center whitespace-break-spaces leading-tight p-[2px] transition-colors duration-200 box-border overflow-hidden text-xs`;
 
   const cellClasses = clsx(
     baseClasses,
@@ -59,17 +58,17 @@ const RoomCell = ({
       'cursor-pointer hover:bg-gray-200/70': isSelectable && !isFixed && !isNoneOption,
       'cursor-default': isFixed || !isSelectable,
 
-      // Adjust font size based on content length? Or keep consistent?
-      // Using smaller bold text if it's a known room or the fallback letter
-      'font-bold text-[9px]': hasAssignedRoom || (!isFixed && !isNoneOption && roomName && roomName.length === 1),
-      'text-[10px] font-normal': !hasAssignedRoom && !(roomName && roomName.length === 1) && !isFixed, // Default if not assigned room/letter
+      'font-bold': hasAssignedRoom || (!isFixed && !isNoneOption && roomName && roomName.length === 1),
+      'font-normal': !hasAssignedRoom && !(roomName && roomName.length === 1) && !isFixed, // Default if not assigned room/letter
+
+      // 'hover:!ring-2 hover:!ring-offset-2 ': hasAssignedRoom,
 
       // Fixed Cells
       'bg-slate-300 border-slate-500 font-bold !outline-none !shadow-none': isFixed,
       'hover:bg-slate-300': isFixed,
 
       // Selection States
-      'outline outline-3 outline-blue-600 outline-offset-[-3px] border-blue-600': isSelectedInGrid && !isFixed,
+      'outline outline-10 outline-black outline-offset-0 outline-dashed z-10': isSelectedInGrid && !isFixed,
       'bg-gray-200': isSelectedInModal && !isFixed && !isNoneOption, // Modal selection uses background
 
       // Special Buttons
@@ -110,9 +109,9 @@ const RoomCell = ({
       {showContent ? (isNoneOption ? 'None' : roomName) : ''}
 
       {/* Display Letter in Top Right Corner if provided */}
-      {displayLetter && !isFixed && (
+      {displayLetter && (
         <span
-          className="absolute top-0 right-1 text-[9px] font-bold leading-none"
+          className="absolute top-0 right-1 font-bold leading-none text-xs"
           style={letterStyle}
           aria-hidden="true" // Hide from screen readers as it's decorative/redundant
         >
